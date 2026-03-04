@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pnp System</title>
+    <link rel="icon" type="image/png" href="image/pnplogo.png">
+    <title>PNP | Login</title>
 </head>
 <body>
     
@@ -15,7 +16,7 @@
 
     <h2>LOGIN</h2>
 
-    <form>
+    <form action="admin/admin_dashboard.php">
 
         <label>Email</label>
         <input type="email">
@@ -36,7 +37,7 @@
 </html>
 
 <style>
-    *{
+    *{   
 margin:0;
 padding:0;
 box-sizing:border-box;
