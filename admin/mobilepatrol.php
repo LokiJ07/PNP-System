@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" href="../image/pnplogo.png">
-<title>PNP | Users Management</title>
+<title>PNP | MobilePatrol Reports</title>
 
 <style>
+
 *{
 margin:0;
 padding:0;
@@ -51,7 +52,7 @@ border-radius:5px;
 cursor:pointer;
 }
 
-.sidebar ul li:hover{
+.sidebar ul{
 background:#0a3d62;
 }
 
@@ -68,32 +69,13 @@ display:none;
 padding-left:15px;
 }
 
+
 /* main */
 
 .main{
 flex:1;
 background:#eef2f6;
 padding:30px;
-}
-
-/* tabs */
-
-.tabs{
-margin-top:20px;
-}
-
-.tab-btn{
-background:#08324f;
-color:white;
-padding:8px 16px;
-border:none;
-border-radius:4px;
-cursor:pointer;
-margin-right:5px;
-}
-
-.tab-btn:hover{
-background:#06263d;
 }
 
 /* table */
@@ -123,19 +105,19 @@ padding:12px;
 border-bottom:1px solid #ddd;
 }
 
-.view-btn, .status-btn{
+.view-btn{
 background:#0a3d62;
 color:white;
 padding:6px 12px;
 border:none;
 border-radius:4px;
 cursor:pointer;
-margin-right:5px;
 }
 
-.view-btn:hover, .status-btn:hover{
+.view-btn:hover{
 background:#06263d;
 }
+
 </style>
 </head>
 
@@ -208,73 +190,49 @@ dropdowns.forEach(drop => {
 
 <div class="main">
 
-<h2>Users Management</h2>
+<h2>Mobile FootPatrol Reports</h2>
 
-<div class="tabs">
-<button class="tab-btn" onclick="showTab('active')">Active Users</button>
-<button class="tab-btn" onclick="showTab('inactive')">Inactive Users</button>
-</div>
+<div class="table-container">
 
-<!-- Active Users Table -->
-<div id="active" class="table-container">
 <table>
+
 <tr>
 <th>Name</th>
-<th>Email</th>
+<th>Date</th>
+<th>Time</th>
 <th>Status</th>
 <th>Action</th>
 </tr>
+
 <tr>
 <td>Juan Dela Cruz</td>
-<td>juan@example.com</td>
-<td>Active</td>
-<td>
-<button class="status-btn">Deactivate</button>
-<button class="view-btn">View</button>
-</td>
+<td>June 10, 2026</td>
+<td>9:30 AM</td>
+<td>Pending</td>
+<td><button class="view-btn">View</button></td>
 </tr>
+
 <tr>
 <td>Maria Santos</td>
-<td>maria@example.com</td>
-<td>Active</td>
-<td>
-<button class="status-btn">Deactivate</button>
-<button class="view-btn">View</button>
-</td>
+<td>June 10, 2026</td>
+<td>10:15 AM</td>
+<td>Approved</td>
+<td><button class="view-btn">View</button></td>
 </tr>
-</table>
-</div>
 
-<!-- Inactive Users Table -->
-<div id="inactive" class="table-container" style="display:none;">
-<table>
-<tr>
-<th>Name</th>
-<th>Email</th>
-<th>Status</th>
-<th>Action</th>
-</tr>
 <tr>
 <td>Pedro Reyes</td>
-<td>pedro@example.com</td>
-<td>Inactive</td>
-<td>
-<button class="status-btn">Activate</button>
-<button class="view-btn">View</button>
-</td>
+<td>June 11, 2026</td>
+<td>7:45 AM</td>
+<td>Pending</td>
+<td><button class="view-btn">View</button></td>
 </tr>
+
 </table>
-</div>
 
 </div>
 
-<script>
-function showTab(tabName){
-document.getElementById('active').style.display='none';
-document.getElementById('inactive').style.display='none';
-document.getElementById(tabName).style.display='block';
-}
-</script>
+</div>
 
 </body>
 </html>

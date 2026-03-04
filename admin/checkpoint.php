@@ -24,8 +24,7 @@ background:#0a3d62;
 
 .sidebar{
 width:240px;
-height:100vh;
-background:#08324f;
+height:100vh;   
 color:white;
 padding:20px;
 }
@@ -52,7 +51,7 @@ border-radius:5px;
 cursor:pointer;
 }
 
-.sidebar ul li:hover{
+.sidebar ul{
 background:#0a3d62;
 }
 
@@ -67,10 +66,6 @@ display:block;
 .dropdown-content{
 display:none;
 padding-left:15px;
-}
-
-.dropdown:hover .dropdown-content{
-display:block;
 }
 
 /* main */
@@ -139,32 +134,55 @@ background:#06263d;
 
 <li><a href="admin_dashboard.php">Dashboard</a></li>
 
-<li class="dropdown">
-Patrol
-<ul class="dropdown-content">
-<li>Foot Patrol</li>
-<li>Mobile Patrol</li>
-<li>Motorcycle Patrol</li>
-</ul>
-</li>
-
 <li><a href="checkpoint.php">Checkpoint</a></li>
 
 <li class="dropdown">
-Oplan Bakal / Sita
+<a href="javascript:void(0)" class="dropbtn">Patrol</a>
 <ul class="dropdown-content">
-<li>Oplan Bakal</li>
-<li>Oplan Sita</li>
+<li><a href="footpatrol.php">Foot Patrol</a></li>
+<li><a href="mobilepatrol.php">Mobile Patrol</a></li>
+<li><a href="motorpatrol.php">Motorcycle Patrol</a></li>
 </ul>
 </li>
 
-<li>Users</li>
+<li class="dropdown">
+<a href="javascript:void(0)" class="dropbtn">Oplan Bakal / Sita</a>
+<ul class="dropdown-content">
+<li><a href="oplanbakal.php">Oplan Bakal</a></li>
+<li><a href="oplansita.php">Oplan Sita</a></li>
+</ul>
+</li>
+
+<li><a href="admin_users.php">Users</a></li>
 
 <li><a href="../index.php">Logout</a></li>
 
 </ul>
 
 </div>
+
+<script>
+const dropdowns = document.querySelectorAll('.dropdown');
+
+dropdowns.forEach(drop => {
+    const btn = drop.querySelector('.dropbtn');
+    const menu = drop.querySelector('.dropdown-content');
+
+    btn.addEventListener('click', () => {
+        // Close other dropdowns
+        dropdowns.forEach(d => {
+            if(d !== drop) d.querySelector('.dropdown-content').style.display = 'none';
+        });
+
+        // Toggle this dropdown
+        if(menu.style.display === 'block'){
+            menu.style.display = 'none';
+        } else {
+            menu.style.display = 'block';
+        }
+    });
+});
+</script>
 
 <!-- MAIN -->
 

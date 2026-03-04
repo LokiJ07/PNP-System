@@ -60,12 +60,18 @@ list-style:none;
 
 .sidebar ul li{
 padding:12px;
-cursor:pointer;
 border-radius:5px;
+cursor:pointer;
 }
 
 .sidebar ul li:hover{
 background:#0a3d62;
+}
+
+.sidebar a{
+color:white;
+text-decoration:none;
+display:block;
 }
 
 /* dropdown */
@@ -79,10 +85,6 @@ margin-top:5px;
 .dropdown-content li{
 font-size:14px;
 padding:8px 0;
-}
-
-.dropdown:hover .dropdown-content{
-display:block;
 }
 
 /* links */
@@ -165,43 +167,63 @@ box-shadow:0 3px 8px rgba(0,0,0,0.1);
 <div class="sidebar">
 
 <div class="logo">
-<img src="../image/pnplogo.png" alt="PNP Logo">
+<img src="../image/pnplogo.png">
 <h2>PNP Admin</h2>
 </div>
 
 <ul>
 
-<li>Dashboard</li>
+<li><a href="admin_dashboard.php">Dashboard</a></li>
 
-<li><a style="color: white;" href="checkpoint.php">Checkpoint</a></li>
-
-<li class="dropdown">
-Patrol
-<ul class="dropdown-content">
-<li>Foot Patrol</li>
-<li>Mobile Patrol</li>
-<li>Motorcycle Patrol</li>
-</ul>
-</li>
+<li><a href="checkpoint.php">Checkpoint</a></li>
 
 <li class="dropdown">
-Oplan Bakal / Sita
+<a href="javascript:void(0)" class="dropbtn">Patrol</a>
 <ul class="dropdown-content">
-<li>Oplan Bakal</li>
-<li>Oplan Sita</li>
+<li><a href="footpatrol.php">Foot Patrol</a></li>
+<li><a href="mobilepatrol.php">Mobile Patrol</a></li>
+<li><a href="motorpatrol.php">Motorcycle Patrol</a></li>
 </ul>
 </li>
 
-<li><a style="color:white;" href="admin_users.php">Users</a></li>
-
-<li>
-<a href="../index.php">Logout</a>
+<li class="dropdown">
+<a href="javascript:void(0)" class="dropbtn">Oplan Bakal / Sita</a>
+<ul class="dropdown-content">
+<li><a href="oplanbakal.php">Oplan Bakal</a></li>
+<li><a href="oplansita.php">Oplan Sita</a></li>
+</ul>
 </li>
 
-</ul>
+<li><a href="admin_users.php">Users</a></li>
 
+<li><a href="../index.php">Logout</a></li>
+
+</ul>
 
 </div>
+
+<script>
+const dropdowns = document.querySelectorAll('.dropdown');
+
+dropdowns.forEach(drop => {
+    const btn = drop.querySelector('.dropbtn');
+    const menu = drop.querySelector('.dropdown-content');
+
+    btn.addEventListener('click', () => {
+        // Close other dropdowns
+        dropdowns.forEach(d => {
+            if(d !== drop) d.querySelector('.dropdown-content').style.display = 'none';
+        });
+
+        // Toggle this dropdown
+        if(menu.style.display === 'block'){
+            menu.style.display = 'none';
+        } else {
+            menu.style.display = 'block';
+        }
+    });
+});
+</script>
 
 <div class="main">
 
