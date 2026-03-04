@@ -48,8 +48,11 @@ height:100vh;
 display:flex;
 align-items:center;
 justify-content:center;
-background:url("image/pnpBGlogo.jpg") no-repeat center;
-background-size: cover;
+background-image:url("image/pnpBGlogo.jpg");
+background-position:center;
+background-repeat:no-repeat;
+background-size:cover;
+background-color:#0a3d62;
 }
 
 .background{
