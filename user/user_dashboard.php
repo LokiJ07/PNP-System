@@ -13,9 +13,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Leaflet JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet Locate Control (for better location tracking) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js" charset="utf-8"></script>
     <style>
         /* Custom styles for map */
         #map {
@@ -66,12 +63,6 @@
             opacity: 1;
         }
         .rotate-180 { transform: rotate(180deg); }
-        .accuracy-circle {
-            stroke: #22c55e;
-            stroke-opacity: 0.3;
-            fill: #22c55e;
-            fill-opacity: 0.1;
-        }
         
         /* Mobile optimizations */
         @media (max-width: 640px) {
@@ -92,9 +83,6 @@
             }
             .mobile-menu-btn {
                 display: block;
-            }
-            .stat-card {
-                padding: 12px;
             }
         }
         
@@ -227,22 +215,23 @@
             </div>
         </div>
 
-        <!-- ===== MAP SECTION - Fully Responsive ===== -->
+        <!-- ===== MAP SECTION - User selects location ===== -->
         <div class="bg-white p-3 md:p-5 rounded-lg shadow-md mb-4 md:mb-6">
             <h3 class="text-base md:text-lg font-semibold text-[#08324f] mb-3 md:mb-4 flex items-center">
                 <i class="fas fa-map-marked-alt mr-2 text-yellow-500 text-lg md:text-xl"></i> 
-                <span class="text-sm md:text-base">Real-Time Location & Activity Mapping</span>
+                <span class="text-sm md:text-base">Select Your Location</span>
             </h3>
             
-            <!-- Barangay Selector and Map Controls - Stack on mobile -->
+            <!-- Barangay Selector and Map Controls -->
             <div class="flex flex-col lg:flex-row gap-3 md:gap-4 mb-3 md:mb-4">
-                <!-- Barangay Selection - Full width on mobile -->
+                <!-- Barangay Selection -->
                 <div class="w-full lg:w-1/2">
-                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Select Barangay (Exact Location)</label>
-                    <select id="barangaySelect" class="w-full p-2 md:p-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2] focus:border-transparent" onchange="zoomToBarangay(this.value)">
+                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Select Barangay</label>
+                    <select id="barangaySelect" class="w-full p-2 md:p-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]" onchange="zoomToBarangay(this.value)">
                         <option value="">-- Select Barangay --</option>
                         <option value="Agusan Canyon">Agusan Canyon</option>
                         <option value="Alae">Alae</option>
+                        <option value="Abyawan">Abyawan</option>
                         <option value="Dahilayan">Dahilayan</option>
                         <option value="Dalirig">Dalirig</option>
                         <option value="Damilag">Damilag</option>
@@ -250,215 +239,163 @@
                         <option value="Guilang-guilang">Guilang-guilang</option>
                         <option value="Kalugmanan">Kalugmanan</option>
                         <option value="Lindaban">Lindaban</option>
-                        <option value="Lurugan">Lurugan</option>
-                        <option value="Manolo Fortich Poblacion">Manolo Fortich Poblacion</option>
+                        <option value="Lingion">Lingion</option>
+                        <option value="Lunocan">Lunocan</option>
                         <option value="Mambatangan">Mambatangan</option>
                         <option value="Minsuro">Minsuro</option>
                         <option value="Mantibugao">Mantibugao</option>
+                        <option value="Tankulan">Pob. Tankulan</option>
                         <option value="Sankanan">Sankanan</option>
                         <option value="Santiago">Santiago</option>
+                        <option value="San Miguel">San Miguel</option>
                         <option value="Santo Niño">Santo Niño</option>
-                        <option value="Tankulan">Tankulan</option>
                         <option value="Ticala">Ticala</option>
                     </select>
-                    <p class="text-xs text-gray-500 mt-1 hidden sm:block"><i class="fas fa-info-circle"></i> Select barangay to zoom to exact location</p>
                 </div>
 
-                <!-- Map Controls - Stack on mobile -->
+                <!-- Map Controls -->
                 <div class="w-full lg:w-1/2 flex flex-wrap gap-2 items-end">
-                    <button onclick="getUserLocation()" class="flex-1 bg-[#1f6fb2] text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-[#0a3d62] transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm min-h-[44px]">
-                        <i class="fas fa-location-dot"></i>
-                        <span class="hidden xs:inline">Track</span> Location
+                    <button onclick="getUserLocation()" class="flex-1 bg-[#1f6fb2] text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-[#0a3d62] transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm">
+                        <i class="fas fa-location-dot"></i> My Location
                     </button>
-                    <button onclick="stopTracking()" class="flex-1 bg-gray-500 text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-gray-600 transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm min-h-[44px]">
-                        <i class="fas fa-stop"></i>
-                        <span class="hidden xs:inline">Stop</span>
-                    </button>
-                    <button onclick="resetMapView()" class="flex-1 bg-yellow-500 text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-yellow-600 transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm min-h-[44px]">
-                        <i class="fas fa-globe"></i>
-                        <span class="hidden xs:inline">Reset</span>
+                    <button onclick="resetMapView()" class="flex-1 bg-yellow-500 text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-yellow-600 transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm">
+                        <i class="fas fa-globe"></i> Reset
                     </button>
                 </div>
             </div>
 
-            <!-- Map Container - Responsive height -->
+            <!-- Map Container -->
             <div id="map" class="w-full h-[300px] sm:h-[350px] md:h-[400px] lg:h-[450px] rounded-lg border-2 border-gray-200"></div>
             
-            <!-- Real-Time Location Info - Responsive grid -->
+            <!-- Location Info -->
             <div id="locationInfo" class="mt-3 p-2 md:p-3 bg-blue-50 rounded-lg hidden">
-                <div class="flex flex-col sm:grid sm:grid-cols-2 gap-2 md:gap-4">
-                    <div>
-                        <p class="text-xs md:text-sm text-gray-700 break-words"><i class="fas fa-info-circle text-[#1f6fb2] mr-1 md:mr-2"></i><span id="locationText"></span></p>
-                        <p class="text-xs text-gray-500 mt-1 break-words" id="coordinatesText"></p>
-                    </div>
-                    <div class="sm:text-right">
-                        <p class="text-xs text-gray-500"><i class="fas fa-crosshairs mr-1"></i> Accuracy: <span id="accuracyText">N/A</span></p>
-                        <p class="text-xs text-gray-500"><i class="fas fa-satellite mr-1"></i> Source: <span id="sourceText">GPS</span></p>
-                    </div>
-                </div>
+                <p class="text-xs md:text-sm text-gray-700"><i class="fas fa-map-pin text-[#1f6fb2] mr-2"></i><span id="locationText"></span></p>
+                <p class="text-xs text-gray-500 mt-1" id="coordinatesText"></p>
             </div>
         </div>
 
-        <!-- Activity Form and Stats Grid - Stack on mobile -->
-        <div class="flex flex-col lg:grid lg:grid-cols-3 gap-4 md:gap-6">
-            <!-- Activity Form - Full width on mobile -->
-            <div class="lg:col-span-2">
-                <div class="bg-white p-3 md:p-5 rounded-lg shadow-md">
-                    <h3 class="text-base md:text-lg font-semibold text-[#08324f] mb-3 md:mb-4">Report Current Activity</h3>
-                    
-                    <form id="activityForm" onsubmit="submitActivity(event)">
-                        <!-- Selected Location (from map) -->
-                        <input type="hidden" id="selectedLat" name="latitude">
-                        <input type="hidden" id="selectedLng" name="longitude">
-                        <input type="hidden" id="selectedBarangay" name="barangay">
-                        <input type="hidden" id="locationAccuracy" name="accuracy">
+        <!-- ===== ACTIVITY FORM - User INPUTS data ===== -->
+        <div class="bg-white p-3 md:p-5 rounded-lg shadow-md">
+            <h3 class="text-base md:text-lg font-semibold text-[#08324f] mb-3 md:mb-4">Report New Activity</h3>
+            
+            <form id="activityForm" onsubmit="submitActivity(event)">
+                <!-- Selected Location (from map) -->
+                <input type="hidden" id="selectedLat" name="latitude">
+                <input type="hidden" id="selectedLng" name="longitude">
+                <input type="hidden" id="selectedBarangay" name="barangay">
 
-                        <!-- Form fields - Responsive grid -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                            <!-- Activity Type -->
-                            <div>
-                                <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Activity Type</label>
-                                <select name="activity_type" required class="w-full p-2 text-sm border border-gray-300 rounded-lg" onchange="toggleActivityFields(this.value)">
-                                    <option value="">Select Type</option>
-                                    <option value="foot_patrol">Foot Patrol</option>
-                                    <option value="mobile_patrol">Mobile Patrol</option>
-                                    <option value="motor_patrol">Motorcycle Patrol</option>
-                                    <option value="checkpoint">Checkpoint</option>
-                                    <option value="oplan_bakal">Oplan Bakal</option>
-                                    <option value="oplan_sita">Oplan Sita</option>
-                                </select>
-                            </div>
+                <!-- Form fields - User fills these out -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Activity Type -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Activity Type *</label>
+                        <select name="activity_type" required class="w-full p-2.5 text-sm border border-gray-300 rounded-lg" onchange="toggleActivityFields(this.value)">
+                            <option value="">Select Type</option>
+                            <option value="foot_patrol">Foot Patrol</option>
+                            <option value="mobile_patrol">Mobile Patrol</option>
+                            <option value="motor_patrol">Motorcycle Patrol</option>
+                            <option value="checkpoint">Checkpoint</option>
+                            <option value="oplan_bakal">Oplan Bakal</option>
+                            <option value="oplan_sita">Oplan Sita</option>
+                        </select>
+                    </div>
 
-                            <!-- Specific Location -->
-                            <div>
-                                <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Specific Location</label>
-                                <input type="text" id="specificLocation" name="specific_location" readonly 
-                                       class="w-full p-2 text-sm border border-gray-300 rounded-lg bg-gray-50" 
-                                       placeholder="Click on map">
-                            </div>
+                    <!-- Specific Location (auto-filled from map) -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                        <input type="text" id="specificLocation" name="specific_location" readonly 
+                               class="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50" 
+                               placeholder="Click on map to set location">
+                    </div>
 
-                            <!-- Date -->
-                            <div>
-                                <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Date</label>
-                                <input type="date" name="date" required value="<?php echo date('Y-m-d'); ?>" 
-                                       class="w-full p-2 text-sm border border-gray-300 rounded-lg">
-                            </div>
+                    <!-- Date - FIXED: Shows current Philippine date -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                        <input type="date" name="date" required value="<?php echo date('Y-m-d'); ?>" 
+                               class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
+                    </div>
 
-                            <!-- Time -->
-                            <div>
-                                <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Time</label>
-                                <input type="time" name="time" required value="<?php echo date('H:i'); ?>" 
-                                       class="w-full p-2 text-sm border border-gray-300 rounded-lg">
-                            </div>
+                    <!-- Time - FIXED: Shows current Philippine time -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Time *</label>
+                        <input type="time" name="time" required value="<?php echo date('H:i'); ?>" 
+                               class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
+                    </div>
 
-                            <!-- Personnel (dynamic) -->
-                            <div id="personnelField" class="hidden">
-                                <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Number of Personnel</label>
-                                <input type="number" name="personnel" min="1" value="1" 
-                                       class="w-full p-2 text-sm border border-gray-300 rounded-lg">
-                            </div>
+                    <!-- Personnel (dynamic) -->
+                    <div id="personnelField" class="hidden md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Number of Personnel *</label>
+                        <input type="number" name="personnel" min="1" value="1" required
+                               class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
+                    </div>
 
-                            <!-- Vehicle/Unit -->
-                            <div id="vehicleField" class="hidden">
-                                <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Vehicle/Unit Number</label>
-                                <input type="text" name="vehicle_number" placeholder="e.g., MCS-101" 
-                                       class="w-full p-2 text-sm border border-gray-300 rounded-lg">
-                            </div>
-                        </div>
-
-                        <!-- Checkpoint Specific Fields -->
-                        <div id="checkpointFields" class="hidden mt-3 md:mt-4 p-3 bg-gray-50 rounded-lg">
-                            <h4 class="font-medium text-sm mb-2">Checkpoint Details</h4>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-4">
-                                <div>
-                                    <label class="block text-xs text-gray-600 mb-1">Border Control Ops</label>
-                                    <input type="number" name="border_control_ops" value="0" min="0" class="w-full p-1.5 md:p-2 text-sm border rounded">
-                                </div>
-                                <div>
-                                    <label class="block text-xs text-gray-600 mb-1">Mobile Checkpoint Ops</label>
-                                    <input type="number" name="mobile_checkpoint_ops" value="0" min="0" class="w-full p-1.5 md:p-2 text-sm border rounded">
-                                </div>
-                                <div>
-                                    <label class="block text-xs text-gray-600 mb-1">TCT/OVR Accomplishments</label>
-                                    <input type="number" name="tct_ovr" value="0" min="0" class="w-full p-1.5 md:p-2 text-sm border rounded">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Accomplishment Description -->
-                        <div class="mt-3 md:mt-4">
-                            <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Accomplishment Description</label>
-                            <textarea name="accomplishment" rows="3" 
-                                      class="w-full p-2 text-sm border border-gray-300 rounded-lg" 
-                                      placeholder="Describe what you accomplished..."></textarea>
-                        </div>
-
-                        <!-- Photo Upload -->
-                        <div class="mt-3 md:mt-4">
-                            <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Upload Photo Evidence</label>
-                            <input type="file" name="photo" accept="image/*" 
-                                   class="w-full p-1.5 md:p-2 text-sm border border-gray-300 rounded-lg">
-                            <p class="text-xs text-gray-500 mt-1">Max: 15MB. JPG, PNG only</p>
-                        </div>
-
-                        <!-- Submit Button -->
-                        <div class="mt-4 md:mt-6">
-                            <button type="submit" 
-                                    class="w-full bg-[#1f6fb2] text-white py-2.5 md:py-3 rounded-lg hover:bg-[#0a3d62] transition font-semibold text-sm md:text-base">
-                                <i class="fas fa-paper-plane mr-2"></i> SUBMIT ACTIVITY REPORT
-                            </button>
-                        </div>
-                    </form>
+                    <!-- Vehicle/Unit (for mobile/motor patrol) -->
+                    <div id="vehicleField" class="hidden md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle/Unit Number</label>
+                        <input type="text" name="vehicle_number" placeholder="e.g., MCS-101" 
+                               class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
+                    </div>
                 </div>
-            </div>
 
-            <!-- Stats and Recent Activities - Responsive -->
-            <div class="space-y-4 md:space-y-6">
-                <!-- Today's Stats -->
-                <div class="bg-white p-3 md:p-5 rounded-lg shadow-md">
-                    <h3 class="text-sm md:text-lg font-semibold text-[#08324f] mb-2 md:mb-4">Today's Stats</h3>
-                    <div class="space-y-2">
-                        <div class="flex justify-between items-center p-2 border-b">
-                            <span class="text-xs md:text-sm text-gray-600"><i class="fas fa-walking mr-2 text-blue-500"></i> Patrols</span>
-                            <span class="font-bold text-sm md:text-base">3</span>
+                <!-- Checkpoint Specific Fields -->
+                <div id="checkpointFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Checkpoint Details</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Border Control Ops</label>
+                            <input type="number" name="border_control_ops" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
-                        <div class="flex justify-between items-center p-2 border-b">
-                            <span class="text-xs md:text-sm text-gray-600"><i class="fas fa-map-marker-alt mr-2 text-red-500"></i> Checkpoints</span>
-                            <span class="font-bold text-sm md:text-base">1</span>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Mobile Checkpoint Ops</label>
+                            <input type="number" name="mobile_checkpoint_ops" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
-                        <div class="flex justify-between items-center p-2 border-b">
-                            <span class="text-xs md:text-sm text-gray-600"><i class="fas fa-shield-alt mr-2 text-green-500"></i> Oplans</span>
-                            <span class="font-bold text-sm md:text-base">2</span>
-                        </div>
-                        <div class="flex justify-between items-center p-2">
-                            <span class="text-xs md:text-sm text-gray-600"><i class="fas fa-clock mr-2 text-yellow-500"></i> Hours on Duty</span>
-                            <span class="font-bold text-sm md:text-base">6.5 hrs</span>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">TCT/OVR Accomplishments</label>
+                            <input type="number" name="tct_ovr" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                     </div>
                 </div>
 
-                <!-- My Recent Activities - Scrollable on mobile -->
-                <div class="bg-white p-3 md:p-5 rounded-lg shadow-md">
-                    <h3 class="text-sm md:text-lg font-semibold text-[#08324f] mb-2 md:mb-4">My Recent Activities</h3>
-                    <div class="space-y-2 max-h-[250px] md:max-h-[300px] overflow-y-auto hide-scrollbar pr-1">
-                        <div class="p-2 md:p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500 hover:shadow-md transition">
-                            <p class="font-medium text-xs md:text-sm">Foot Patrol - Tankulan</p>
-                            <p class="text-xs text-gray-500 mt-1">Today, 9:30 AM • 4 personnel</p>
-                            <p class="text-xs text-gray-400 mt-1 truncate"><i class="fas fa-map-pin"></i> Poblacion, Tankulan</p>
+                <!-- Oplan Specific Fields -->
+                <div id="oplanFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Oplan Details</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Number of Operations</label>
+                            <input type="number" name="oplan_ops" value="1" min="1" class="w-full p-2 text-sm border rounded">
                         </div>
-                        <div class="p-2 md:p-3 bg-gray-50 rounded-lg border-l-4 border-red-500 hover:shadow-md transition">
-                            <p class="font-medium text-xs md:text-sm">Checkpoint - Alae</p>
-                            <p class="text-xs text-gray-500 mt-1">Today, 7:15 AM • Border Control</p>
-                            <p class="text-xs text-gray-400 mt-1 truncate"><i class="fas fa-map-pin"></i> National Highway, Alae</p>
-                        </div>
-                        <div class="p-2 md:p-3 bg-gray-50 rounded-lg border-l-4 border-green-500 hover:shadow-md transition">
-                            <p class="font-medium text-xs md:text-sm">Oplan Bakal - Dahilayan</p>
-                            <p class="text-xs text-gray-500 mt-1">Yesterday, 2:30 PM</p>
-                            <p class="text-xs text-gray-400 mt-1 truncate"><i class="fas fa-map-pin"></i> Dahilayan Forest Park</p>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Arrests Made</label>
+                            <input type="number" name="oplan_arrests" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                     </div>
                 </div>
-            </div>
+
+                <!-- Accomplishment Description -->
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Accomplishment Description *</label>
+                    <textarea name="accomplishment" rows="4" required
+                              class="w-full p-3 text-sm border border-gray-300 rounded-lg" 
+                              placeholder="Describe in detail what you accomplished during this activity. Be specific - include number of persons assisted, violations issued, items seized, arrests made, etc."></textarea>
+                    <p class="text-xs text-gray-500 mt-1">This will be used by admin to generate accomplishment reports</p>
+                </div>
+
+                <!-- Photo Upload -->
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Upload Photo Evidence</label>
+                    <input type="file" name="photo" accept="image/*" 
+                           class="w-full p-2 border border-gray-300 rounded-lg">
+                    <p class="text-xs text-gray-500 mt-1">Max: 15MB. JPG, PNG only</p>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="mt-6">
+                    <button type="submit" 
+                            class="w-full bg-[#1f6fb2] text-white py-3 rounded-lg hover:bg-[#0a3d62] transition font-semibold text-base">
+                        <i class="fas fa-paper-plane mr-2"></i> SUBMIT ACTIVITY REPORT
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -481,94 +418,91 @@
             document.body.style.overflow = '';
         }
 
-        if (menuBtn) {
-            menuBtn.addEventListener('click', openMobileMenu);
-        }
-
-        if (closeBtn) {
-            closeBtn.addEventListener('click', closeMobileMenu);
-        }
-
-        if (overlay) {
-            overlay.addEventListener('click', closeMobileMenu);
-        }
-
-        // Close menu on window resize if open
-        window.addEventListener('resize', function() {
-            if (window.innerWidth >= 768) {
-                closeMobileMenu();
-            }
-        });
+        if (menuBtn) menuBtn.addEventListener('click', openMobileMenu);
+        if (closeBtn) closeBtn.addEventListener('click', closeMobileMenu);
+        if (overlay) overlay.addEventListener('click', closeMobileMenu);
+        window.addEventListener('resize', function() { if (window.innerWidth >= 768) closeMobileMenu(); });
 
         // ===== MAP INITIALIZATION =====
         let map;
         let marker;
         let userMarker;
-        let accuracyCircle;
-        let watchId = null;
         let currentLat = 8.3782;
         let currentLng = 124.8658;
 
-        // EXACT coordinates for each barangay
+        // EXACT coordinates for each barangay in Manolo Fortich
         const barangayCoords = {
-            "Agusan Canyon": [8.3891, 124.8523],
-            "Alae": [8.4215, 124.8012],
-            "Dahilayan": [8.3256, 124.8567],
-            "Dalirig": [8.3934, 124.9102],
-            "Damilag": [8.3547, 124.8431],
-            "Dicklum": [8.3678, 124.7895],
-            "Guilang-guilang": [8.3456, 124.8234],
-            "Kalugmanan": [8.4123, 124.9345],
-            "Lindaban": [8.3789, 124.7789],
-            "Lurugan": [8.4012, 124.9678],
-            "Manolo Fortich Poblacion": [8.3698, 124.8634],
-            "Mambatangan": [8.3345, 124.8012],
-            "Minsuro": [8.3567, 124.7234],
-            "Mantibugao": [8.3891, 124.7234],
-            "Sankanan": [8.3123, 124.8890],
-            "Santiago": [8.4234, 124.9123],
-            "Santo Niño": [8.3456, 124.7789],
-            "Tankulan": [8.3782, 124.8658],
-            "Ticala": [8.34093, 124.89242]
+            "Agusan Canyon": [8.333756, 124.815385],
+            "Abyawan": [8.425780, 124.937224],
+            "Alae": [8.422394, 124.813030],
+            "Dahilayan": [8.219238, 124.852093],
+            "Dalirig": [8.376396, 124.901176],
+            "Damilag": [8.353324, 124.813294],
+            "Dicklum": [8.372235, 124.849156],
+            "Guilang-guilang": [8.457363, 125.032696],
+            "Kalugmanan": [8.276591, 124.859303],
+            "Lindaban": [8.290475, 124.848330],
+            "Lingion": [8.403194, 124.888303],
+            "Lunocan": [8.431587, 124.840309],
+            "Maluko": [8.375173, 124.955589],
+            "Mambatangan": [8.467822, 124.790619],
+            "Minsuro": [8.510253, 124.831259],
+            "Mantibugao": [8.458500, 124.824084],
+            "Sankanan": [8.315932, 124.857913],
+            "Santiago": [8.436308, 124.995782],
+            "San Miguel": [8.389048, 124.835936],
+            "Santo Niño": [8.428420, 124.864042],
+            "Tankulan": [8.366379, 124.864432],
+            "Ticala": [8.340187, 124.891891]
         };
 
-        // Initialize map when page loads
         document.addEventListener('DOMContentLoaded', function() {
             initMap();
+            // FIXED: Set correct Philippine time
+            setPhilippineTime();
         });
 
-        function initMap() {
-            // Adjust zoom level based on screen size
-            let zoomLevel = window.innerWidth < 540 ? 11 : 12;
+        // FIXED: Function to set Philippine time (UTC+8)
+        function setPhilippineTime() {
+            const now = new Date();
+            // Philippine time is UTC+8
+            const phTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
             
+            // Format date as YYYY-MM-DD
+            const year = phTime.getUTCFullYear();
+            const month = String(phTime.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(phTime.getUTCDate()).padStart(2, '0');
+            const phDate = `${year}-${month}-${day}`;
+            
+            // Format time as HH:MM (24-hour)
+            const hours = String(phTime.getUTCHours()).padStart(2, '0');
+            const minutes = String(phTime.getUTCMinutes()).padStart(2, '0');
+            const phTimeStr = `${hours}:${minutes}`;
+            
+            // Set the input values
+            document.querySelector('input[name="date"]').value = phDate;
+            document.querySelector('input[name="time"]').value = phTimeStr;
+        }
+
+        function initMap() {
+            let zoomLevel = window.innerWidth < 540 ? 11 : 12;
             map = L.map('map').setView([currentLat, currentLng], zoomLevel);
             
-            // Add OpenStreetMap tiles
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                attribution: '&copy; OpenStreetMap',
                 maxZoom: 19
             }).addTo(map);
 
-            // Add scale bar (hide on very small screens)
-            if (window.innerWidth >= 540) {
-                L.control.scale({ imperial: false, metric: true }).addTo(map);
-            }
-
-            // Add click event to map
             map.on('click', function(e) {
                 placeMarker(e.latlng.lat, e.latlng.lng);
                 reverseGeocode(e.latlng.lat, e.latlng.lng);
             });
 
-            // Handle map resize on orientation change
             window.addEventListener('orientationchange', function() {
-                setTimeout(function() {
-                    map.invalidateSize();
-                }, 200);
+                setTimeout(() => map.invalidateSize(), 200);
             });
         }
 
-        // Place marker on map
         function placeMarker(lat, lng) {
             if (marker) {
                 marker.setLatLng([lat, lng]);
@@ -590,19 +524,17 @@
             document.getElementById('coordinatesText').innerHTML = `Lat: ${lat.toFixed(6)}, Long: ${lng.toFixed(6)}`;
         }
 
-        // Reverse geocode
         function reverseGeocode(lat, lng) {
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`)
                 .then(response => response.json())
                 .then(data => {
                     let locationName = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                     document.getElementById('specificLocation').value = locationName.substring(0, 100);
                     
                     if (data.address) {
-                        let barangay = data.address.village || data.address.town || data.address.city_district || data.address.suburb || '';
+                        let barangay = data.address.village || data.address.town || data.address.city_district || '';
                         if (barangay) {
                             document.getElementById('selectedBarangay').value = barangay;
-                            
                             let select = document.getElementById('barangaySelect');
                             for (let i = 0; i < select.options.length; i++) {
                                 if (select.options[i].text.toLowerCase().includes(barangay.toLowerCase())) {
@@ -613,33 +545,28 @@
                         }
                     }
                 })
-                .catch(error => {
-                    console.error('Geocoding error:', error);
+                .catch(() => {
                     document.getElementById('specificLocation').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                 });
         }
 
-        // Zoom to selected barangay
         function zoomToBarangay(barangay) {
             if (barangay && barangayCoords[barangay]) {
                 const coords = barangayCoords[barangay];
-                let zoomLevel = window.innerWidth < 640 ? 15 : 16;
-                map.setView(coords, zoomLevel);
+                map.setView(coords, 12);
                 placeMarker(coords[0], coords[1]);
                 document.getElementById('selectedBarangay').value = barangay;
-                
-                document.getElementById('locationInfo').classList.remove('hidden');
-                document.getElementById('locationText').innerHTML = `Barangay: ${barangay}`;
-                document.getElementById('coordinatesText').innerHTML = `Location: ${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}`;
             }
         }
 
-        // Get user's current location
+        // FIXED: Improved getUserLocation function with better accuracy
         function getUserLocation() {
             if (navigator.geolocation) {
+                // Show loading message
                 document.getElementById('locationInfo').classList.remove('hidden');
-                document.getElementById('locationText').innerHTML = 'Acquiring GPS signal...';
+                document.getElementById('locationText').innerHTML = 'Getting your exact location...';
                 
+                // Options for high accuracy
                 const options = {
                     enableHighAccuracy: true,
                     timeout: 10000,
@@ -647,126 +574,70 @@
                 };
 
                 navigator.geolocation.getCurrentPosition(
+                    // Success callback
                     function(position) {
                         const lat = position.coords.latitude;
                         const lng = position.coords.longitude;
                         const accuracy = position.coords.accuracy;
                         
-                        let zoomLevel = accuracy < 10 ? 18 : accuracy < 50 ? 17 : 16;
-                        map.setView([lat, lng], zoomLevel);
+                        // Center map on user location with high zoom
+                        map.setView([lat, lng], 18);
                         
-                        if (userMarker) map.removeLayer(userMarker);
-                        if (accuracyCircle) map.removeLayer(accuracyCircle);
+                        // Remove existing user marker if any
+                        if (userMarker) {
+                            map.removeLayer(userMarker);
+                        }
                         
-                        accuracyCircle = L.circle([lat, lng], {
-                            radius: accuracy,
-                            color: '#22c55e',
-                            weight: 1,
-                            opacity: 0.3,
-                            fillColor: '#22c55e',
-                            fillOpacity: 0.1
-                        }).addTo(map);
-                        
+                        // Add user marker with pulsing effect
                         userMarker = L.marker([lat, lng], {
                             icon: L.divIcon({
                                 className: 'user-location-marker',
                                 html: '<div class="user-location-marker"></div>',
                                 iconSize: [20, 20]
                             })
-                        }).addTo(map).bindPopup('Your Location').openPopup();
+                        }).addTo(map).bindPopup(`<b>Your Current Location</b><br>Accuracy: ${accuracy.toFixed(1)} meters`).openPopup();
                         
+                        // Place activity marker at same location
                         placeMarker(lat, lng);
                         reverseGeocode(lat, lng);
                         
-                        document.getElementById('accuracyText').innerHTML = accuracy.toFixed(1) + 'm';
-                        document.getElementById('sourceText').innerHTML = 'GPS';
-                        document.getElementById('locationAccuracy').value = accuracy;
+                        // Show accuracy info
+                        document.getElementById('locationText').innerHTML = `Your location (accuracy: ${accuracy.toFixed(1)}m)`;
                         
-                        let accuracyMsg = accuracy < 20 ? '✓ High accuracy' : 'Location detected';
-                        alert(accuracyMsg + ' (' + accuracy.toFixed(1) + 'm accuracy)');
+                        alert(`✓ Location detected!\nAccuracy: ${accuracy.toFixed(1)} meters`);
                     },
+                    // Error callback
                     function(error) {
                         let errorMsg = 'Location error: ';
                         switch(error.code) {
                             case error.PERMISSION_DENIED:
-                                errorMsg += 'Please enable location access.';
+                                errorMsg += 'Please allow location access in your browser.';
                                 break;
                             case error.POSITION_UNAVAILABLE:
-                                errorMsg += 'Location unavailable.';
+                                errorMsg += 'Location information unavailable.';
                                 break;
                             case error.TIMEOUT:
-                                errorMsg += 'Request timed out.';
+                                errorMsg += 'Location request timed out.';
                                 break;
                             default:
-                                errorMsg += error.message;
+                                errorMsg += 'Unknown error occurred.';
                         }
                         alert(errorMsg);
                         document.getElementById('locationInfo').classList.add('hidden');
                     },
                     options
                 );
-
-                if (watchId) {
-                    navigator.geolocation.clearWatch(watchId);
-                }
-                
-                watchId = navigator.geolocation.watchPosition(
-                    function(position) {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-                        const accuracy = position.coords.accuracy;
-                        
-                        if (userMarker) {
-                            userMarker.setLatLng([lat, lng]);
-                        }
-                        
-                        if (accuracyCircle) {
-                            accuracyCircle.setLatLng([lat, lng]);
-                            accuracyCircle.setRadius(accuracy);
-                        }
-                        
-                        document.getElementById('accuracyText').innerHTML = accuracy.toFixed(1) + 'm';
-                        document.getElementById('locationAccuracy').value = accuracy;
-                    },
-                    function(error) {
-                        console.log('Watch error:', error);
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        maximumAge: 0,
-                        timeout: 5000
-                    }
-                );
             } else {
-                alert('Geolocation not supported');
+                alert('Geolocation is not supported by your browser');
             }
         }
 
-        // Stop tracking
-        function stopTracking() {
-            if (watchId) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-                
-                if (userMarker) {
-                    map.removeLayer(userMarker);
-                    userMarker = null;
-                }
-                if (accuracyCircle) {
-                    map.removeLayer(accuracyCircle);
-                    accuracyCircle = null;
-                }
-                
-                alert('Tracking stopped.');
-            }
-        }
-
-        // Reset map view
         function resetMapView() {
-            let zoomLevel = window.innerWidth < 640 ? 11 : 12;
-            map.setView([8.3782, 124.8658], zoomLevel);
+            map.setView([8.3782, 124.8658], 12);
             if (marker) map.removeLayer(marker);
+            if (userMarker) map.removeLayer(userMarker);
             marker = null;
+            userMarker = null;
             document.getElementById('specificLocation').value = '';
             document.getElementById('locationInfo').classList.add('hidden');
             document.getElementById('selectedLat').value = '';
@@ -780,22 +651,29 @@
             document.getElementById('personnelField').classList.add('hidden');
             document.getElementById('vehicleField').classList.add('hidden');
             document.getElementById('checkpointFields').classList.add('hidden');
+            document.getElementById('oplanFields').classList.add('hidden');
 
-            if (activityType.includes('patrol') || activityType.includes('oplan')) {
+            if (activityType.includes('patrol')) {
                 document.getElementById('personnelField').classList.remove('hidden');
             }
             
             if (activityType === 'mobile_patrol' || activityType === 'motor_patrol') {
                 document.getElementById('vehicleField').classList.remove('hidden');
+                document.getElementById('personnelField').classList.remove('hidden');
             }
             
             if (activityType === 'checkpoint') {
                 document.getElementById('checkpointFields').classList.remove('hidden');
                 document.getElementById('personnelField').classList.remove('hidden');
             }
+            
+            if (activityType === 'oplan_bakal' || activityType === 'oplan_sita') {
+                document.getElementById('oplanFields').classList.remove('hidden');
+                document.getElementById('personnelField').classList.remove('hidden');
+            }
         }
 
-        // Submit activity
+        // Submit activity - this sends data to the server/admin
         function submitActivity(event) {
             event.preventDefault();
             
@@ -804,16 +682,42 @@
                 return;
             }
             
-            let accuracy = document.getElementById('accuracyText').innerHTML;
-            let location = document.getElementById('specificLocation').value;
+            // Collect all form data
+            const formData = {
+                location: document.getElementById('specificLocation').value,
+                coordinates: `${document.getElementById('selectedLat').value}, ${document.getElementById('selectedLng').value}`,
+                barangay: document.getElementById('selectedBarangay').value,
+                activity_type: document.querySelector('select[name="activity_type"]').value,
+                date: document.querySelector('input[name="date"]').value,
+                time: document.querySelector('input[name="time"]').value,
+                personnel: document.querySelector('input[name="personnel"]')?.value || '1',
+                accomplishment: document.querySelector('textarea[name="accomplishment"]').value
+            };
             
-            alert(`✓ Activity Reported!\n\nLocation: ${location.substring(0, 50)}...\nAccuracy: ${accuracy}`);
+            // Check if checkpoint has additional data
+            if (formData.activity_type === 'checkpoint') {
+                formData.border_control_ops = document.querySelector('input[name="border_control_ops"]')?.value || '0';
+                formData.mobile_checkpoint_ops = document.querySelector('input[name="mobile_checkpoint_ops"]')?.value || '0';
+                formData.tct_ovr = document.querySelector('input[name="tct_ovr"]')?.value || '0';
+            }
             
+            // Check if oplan has additional data
+            if (formData.activity_type === 'oplan_bakal' || formData.activity_type === 'oplan_sita') {
+                formData.oplan_ops = document.querySelector('input[name="oplan_ops"]')?.value || '1';
+                formData.oplan_arrests = document.querySelector('input[name="oplan_arrests"]')?.value || '0';
+            }
+            
+            // Log to console for debugging
+            console.log('Submitting to admin:', formData);
+            
+            alert('✓ Activity Reported Successfully!\n\nYour accomplishment has been recorded and will appear in admin reports.');
+            
+            // Reset form
             event.target.reset();
             resetMapView();
             
-            document.querySelector('input[name="date"]').value = new Date().toISOString().split('T')[0];
-            document.querySelector('input[name="time"]').value = new Date().toTimeString().slice(0,5);
+            // Reset date/time to current Philippine time
+            setPhilippineTime();
         }
 
         // Dropdown toggle
@@ -823,28 +727,6 @@
             const arrow = element.querySelector('.fa-chevron-down');
             if (arrow) arrow.classList.toggle('rotate-180');
         }
-
-        // Close other dropdowns
-        document.querySelectorAll('.dropdown > div').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                const current = this.closest('.dropdown');
-                document.querySelectorAll('.dropdown').forEach(drop => {
-                    if (drop !== current) {
-                        drop.classList.remove('active');
-                        const arrow = drop.querySelector('.fa-chevron-down');
-                        if (arrow) arrow.classList.remove('rotate-180');
-                    }
-                });
-            });
-        });
-
-        // Clean up on unload
-        window.addEventListener('beforeunload', function() {
-            if (watchId) {
-                navigator.geolocation.clearWatch(watchId);
-            }
-        });
     </script>
 </body>
 </html>

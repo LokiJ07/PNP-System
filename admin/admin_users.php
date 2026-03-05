@@ -102,7 +102,7 @@
                         <td class="p-3"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs">Active</span></td>
                         <td class="p-3">
                             <button class="bg-yellow-500 text-white px-3 py-1.5 rounded text-xs mr-2 hover:bg-yellow-600">Deactivate</button>
-                            <a href="view_report.php?user_id=1" class="bg-[#0a3d62] text-white px-3 py-1.5 rounded text-xs hover:bg-[#08324f] inline-block">View</a>
+                            <a href="view_user.php?user_id=1" class="bg-[#0a3d62] text-white px-3 py-1.5 rounded text-xs hover:bg-[#08324f] inline-block">View</a>
                         </td>
                     </tr>
                     <tr class="border-b border-gray-200 hover:bg-gray-50">
@@ -111,7 +111,7 @@
                         <td class="p-3"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs">Active</span></td>
                         <td class="p-3">
                             <button class="bg-yellow-500 text-white px-3 py-1.5 rounded text-xs mr-2 hover:bg-yellow-600">Deactivate</button>
-                            <a href="view_report.php?user_id=2" class="bg-[#0a3d62] text-white px-3 py-1.5 rounded text-xs hover:bg-[#08324f] inline-block">View</a>
+                            <a href="view_user.php?user_id=2" class="bg-[#0a3d62] text-white px-3 py-1.5 rounded text-xs hover:bg-[#08324f] inline-block">View</a>
                         </td>
                     </tr>
                     <tr class="border-b border-gray-200 hover:bg-gray-50">
@@ -120,7 +120,7 @@
                         <td class="p-3"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs">Active</span></td>
                         <td class="p-3">
                             <button class="bg-yellow-500 text-white px-3 py-1.5 rounded text-xs mr-2 hover:bg-yellow-600">Deactivate</button>
-                            <a href="view_report.php?user_id=3" class="bg-[#0a3d62] text-white px-3 py-1.5 rounded text-xs hover:bg-[#08324f] inline-block">View</a>
+                            <a href="view_user.php?user_id=3" class="bg-[#0a3d62] text-white px-3 py-1.5 rounded text-xs hover:bg-[#08324f] inline-block">View</a>
                         </td>
                     </tr>
                 </tbody>
@@ -145,7 +145,7 @@
                         <td class="p-3"><span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs">Inactive</span></td>
                         <td class="p-3">
                             <button class="bg-green-500 text-white px-3 py-1.5 rounded text-xs mr-2 hover:bg-green-600">Activate</button>
-                            <a href="view_report.php?user_id=3" class="bg-[#0a3d62] text-white px-3 py-1.5 rounded text-xs hover:bg-[#08324f] inline-block">View</a>
+                            <a href="view_user.php?user_id=3" class="bg-[#0a3d62] text-white px-3 py-1.5 rounded text-xs hover:bg-[#08324f] inline-block">View</a>
                         </td>
                     </tr>
                 </tbody>

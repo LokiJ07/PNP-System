@@ -1,0 +1,1 @@
+<!-- in the admin dashboard I dont need to add the table im okay with the card and also in the statistics please add to show the all the checkpoint, the patrol and oplan-->
