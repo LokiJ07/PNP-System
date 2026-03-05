@@ -31,7 +31,7 @@
                 </a>
             </li>
 
-            <li class="p-3 rounded hover:bg-[#0a3d62] cursor-pointer bg-[#0a3d62] border-l-4 border-yellow-400">
+            <li class="p-3 rounded bg-[#0a3d62] border-l-4 border-yellow-400">
                 <a href="checkpoint.php" class="text-white no-underline block">
                     <i class="fas fa-map-marker-alt mr-3"></i> Checkpoint
                 </a>
@@ -116,28 +116,28 @@
                         <td class="p-3">June 10, 2026</td>
                         <td class="p-3">9:30 AM</td>
                         <td class="p-3"><span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs">Pending</span></td>
-                        <td class="p-3"><button class="bg-[#0a3d62] text-white px-4 py-1.5 rounded text-sm hover:bg-[#08324f]" onclick="viewReport(1)">View</button></td>
+                        <td class="p-3"><a href="view_report.php?id=1&type=checkpoint" class="bg-[#0a3d62] text-white px-4 py-1.5 rounded text-sm hover:bg-[#08324f] inline-block">View</a></td>
                     </tr>
                     <tr class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="p-3">Maria Santos</td>
                         <td class="p-3">June 10, 2026</td>
                         <td class="p-3">10:15 AM</td>
                         <td class="p-3"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs">Approved</span></td>
-                        <td class="p-3"><button class="bg-[#0a3d62] text-white px-4 py-1.5 rounded text-sm hover:bg-[#08324f]" onclick="viewReport(2)">View</button></td>
+                        <td class="p-3"><a href="view_report.php?id=2&type=checkpoint" class="bg-[#0a3d62] text-white px-4 py-1.5 rounded text-sm hover:bg-[#08324f] inline-block">View</a></td>
                     </tr>
                     <tr class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="p-3">Pedro Reyes</td>
                         <td class="p-3">June 11, 2026</td>
                         <td class="p-3">7:45 AM</td>
                         <td class="p-3"><span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs">Pending</span></td>
-                        <td class="p-3"><button class="bg-[#0a3d62] text-white px-4 py-1.5 rounded text-sm hover:bg-[#08324f]" onclick="viewReport(3)">View</button></td>
+                        <td class="p-3"><a href="view_report.php?id=3&type=checkpoint" class="bg-[#0a3d62] text-white px-4 py-1.5 rounded text-sm hover:bg-[#08324f] inline-block">View</a></td>
                     </tr>
                     <tr class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="p-3">Ana Lopez</td>
                         <td class="p-3">June 11, 2026</td>
                         <td class="p-3">2:30 PM</td>
                         <td class="p-3"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs">Approved</span></td>
-                        <td class="p-3"><button class="bg-[#0a3d62] text-white px-4 py-1.5 rounded text-sm hover:bg-[#08324f]" onclick="viewReport(4)">View</button></td>
+                        <td class="p-3"><a href="view_report.php?id=4&type=checkpoint" class="bg-[#0a3d62] text-white px-4 py-1.5 rounded text-sm hover:bg-[#08324f] inline-block">View</a></td>
                     </tr>
                 </tbody>
             </table>
@@ -165,10 +165,6 @@
                 });
             });
         });
-
-        function viewReport(id) {
-            alert('Viewing report #' + id);
-        }
     </script>
 </body>
 </html>

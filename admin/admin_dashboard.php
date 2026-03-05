@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="../image/pnplogo.png">
-    <title>PNP | Dashboard</title>
+    <title>PNP | Admin Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -12,30 +12,22 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .dropdown-content {
-            display: none;
-        }
-        .dropdown.active .dropdown-content {
-            display: block;
-        }
-        .rotate-180 {
-            transform: rotate(180deg);
-        }
+        .dropdown-content { display: none; }
+        .dropdown.active .dropdown-content { display: block; }
+        .rotate-180 { transform: rotate(180deg); }
     </style>
 </head>
 <body class="flex bg-[#0a3d62]">
 
     <!-- Sidebar -->
     <div class="w-[240px] h-screen bg-[#08324f] text-white p-5 sticky top-0 overflow-y-auto">
-        <!-- Logo -->
         <div class="flex items-center gap-3 mb-6 pb-3 border-b border-[#1a4b6d]">
             <img src="../image/pnplogo.png" class="w-8 h-8 object-contain" alt="PNP Logo">
             <h2 class="text-xl font-semibold">PNP Admin</h2>
         </div>
 
-        <!-- Menu -->
         <ul class="space-y-1">
-            <li class="p-3 rounded hover:bg-[#0a3d62] cursor-pointer bg-[#0a3d62] border-l-4 border-yellow-400">
+            <li class="p-3 rounded bg-[#0a3d62] border-l-4 border-yellow-400">
                 <a href="admin_dashboard.php" class="text-white no-underline block">
                     <i class="fas fa-tachometer-alt mr-3"></i> Dashboard
                 </a>
@@ -86,13 +78,14 @@
 
     <!-- Main Content -->
     <div class="flex-1 p-8 bg-[#eef2f6] overflow-y-auto h-screen">
+        
         <!-- Header -->
-        <div class="mb-6">
+        <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
             <h2 class="text-2xl font-bold text-[#08324f]">Dashboard Overview</h2>
             <p class="text-gray-600 mt-1">Welcome back. System monitoring panel.</p>
         </div>
 
-        <!-- Cards Grid -->
+        <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
             <!-- Patrol Summary Card -->
             <div class="bg-white p-5 rounded-lg shadow-md">
@@ -137,27 +130,58 @@
 
         <!-- Charts Area -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div class="bg-white p-5 rounded-lg shadow-md h-[250px]">
+            <div class="bg-white p-5 rounded-lg shadow-md h-[300px]">
                 <canvas id="activityChart"></canvas>
             </div>
-            <div class="bg-white p-5 rounded-lg shadow-md h-[250px]">
+            <div class="bg-white p-5 rounded-lg shadow-md h-[300px]">
                 <canvas id="barangayChart"></canvas>
             </div>
+        </div>
+
+        <!-- Recent Activities Table -->
+        <div class="bg-white p-5 rounded-lg shadow-md mt-6">
+            <h3 class="text-lg font-semibold text-[#08324f] mb-4">Recent Activities</h3>
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-[#08324f] text-white">
+                        <th class="p-3 text-left">Type</th>
+                        <th class="p-3 text-left">Name</th>
+                        <th class="p-3 text-left">Location</th>
+                        <th class="p-3 text-left">Date/Time</th>
+                        <th class="p-3 text-left">Status</th>
+                        <th class="p-3 text-left">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="p-3"><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">Patrol</span></td>
+                        <td class="p-3">Juan Dela Cruz</td>
+                        <td class="p-3">Tankulan</td>
+                        <td class="p-3">June 10, 9:30 AM</td>
+                        <td class="p-3"><span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">Approved</span></td>
+                        <td class="p-3"><a href="view_report.php?id=1&type=patrol" class="bg-[#0a3d62] text-white px-3 py-1 rounded text-xs hover:bg-[#08324f]">View</a></td>
+                    </tr>
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="p-3"><span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">Checkpoint</span></td>
+                        <td class="p-3">Maria Santos</td>
+                        <td class="p-3">Alae</td>
+                        <td class="p-3">June 10, 10:15 AM</td>
+                        <td class="p-3"><span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">Pending</span></td>
+                        <td class="p-3"><a href="view_report.php?id=2&type=checkpoint" class="bg-[#0a3d62] text-white px-3 py-1 rounded text-xs hover:bg-[#08324f]">View</a></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
     <script>
-        // Dropdown toggle
         function toggleDropdown(element) {
             const parent = element.closest('.dropdown');
             parent.classList.toggle('active');
             const arrow = element.querySelector('.fa-chevron-down');
-            if (arrow) {
-                arrow.classList.toggle('rotate-180');
-            }
+            if (arrow) arrow.classList.toggle('rotate-180');
         }
 
-        // Close other dropdowns when opening one
         document.querySelectorAll('.dropdown > div').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -174,58 +198,40 @@
 
         // Initialize Charts
         document.addEventListener('DOMContentLoaded', function() {
-            // Activity Chart
             const ctx = document.getElementById('activityChart').getContext('2d');
             new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                     datasets: [{
-                        label: 'Patrols',
+                        label: 'Activities',
                         data: [12, 19, 15, 17, 24, 23, 20],
                         borderColor: '#08324f',
                         backgroundColor: 'rgba(8,50,79,0.1)',
                         tension: 0.4
-                    }, {
-                        label: 'Checkpoints',
-                        data: [8, 12, 10, 14, 18, 16, 15],
-                        borderColor: '#dc3545',
-                        backgroundColor: 'rgba(220,53,69,0.1)',
-                        tension: 0.4
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
+                    plugins: { legend: { display: false } }
                 }
             });
 
-            // Barangay Chart
             const ctx2 = document.getElementById('barangayChart').getContext('2d');
             new Chart(ctx2, {
                 type: 'bar',
                 data: {
-                    labels: ['Tankulan', 'Alae', 'Dahilayan', 'Damilag', 'Sankanan'],
+                    labels: ['Tankulan', 'Alae', 'Dahilayan'],
                     datasets: [{
-                        label: 'Activities',
-                        data: [45, 38, 32, 28, 25],
-                        backgroundColor: '#08324f',
-                        borderRadius: 6
+                        data: [45, 38, 32],
+                        backgroundColor: '#08324f'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
+                    plugins: { legend: { display: false } }
                 }
             });
         });

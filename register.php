@@ -10,44 +10,24 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Custom blur that Tailwind doesn't have by default */
-        .backdrop-blur-custom {
-            backdrop-filter: blur(10px);
-        }
-        body {
-            background-image: url("image/pnpBGlogo.jpg");
-            background-position: center;
-            background-repeat: no-repeat;
-            background-size: cover;
-        }
+        .backdrop-blur-custom { backdrop-filter: blur(10px); }
+        body { background-image: url("image/pnpBGlogo.jpg"); background-position: center; background-repeat: no-repeat; background-size: cover; }
     </style>
 </head>
 <body class="h-screen flex items-center justify-center bg-[#0a3d62] relative">
 
-    <!-- Background Overlay -->
     <div class="absolute inset-0 bg-black/20"></div>
 
-    <!-- Register Container -->
     <div class="relative w-[420px] p-10 bg-white/35 backdrop-blur-custom rounded-2xl text-center shadow-xl max-h-[90vh] overflow-y-auto">
-        
-        <!-- Logo -->
         <img src="image/pnplogo.png" class="w-20 mx-auto mb-3" alt="PNP Logo">
-
-        <!-- Title -->
         <h2 class="text-3xl font-serif font-bold mb-5 text-gray-800">REGISTER</h2>
 
-        <!-- Register Form -->
         <form action="admin/admin_dashboard.php" class="flex flex-col" method="POST">
-            
-            <!-- Email Field -->
             <label class="text-left text-sm font-serif mt-2 text-gray-700">Email</label>
-            <input type="email" name="email" required 
-                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
+            <input type="email" name="email" required class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-            <!-- Rank Field -->
             <label class="text-left text-sm font-serif mt-3 text-gray-700">Rank</label>
-            <select name="rank" required 
-                    class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition bg-white">
+            <select name="rank" required class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition bg-white">
                 <option value="" disabled selected>Select Rank</option>
                 <option value="PO1">PO1</option>
                 <option value="PO2">PO2</option>
@@ -58,40 +38,26 @@
                 <option value="SPO4">SPO4</option>
             </select>
 
-            <!-- Firstname Field -->
             <label class="text-left text-sm font-serif mt-3 text-gray-700">Firstname</label>
-            <input type="text" name="firstname" required 
-                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
+            <input type="text" name="firstname" required class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-            <!-- Lastname Field -->
             <label class="text-left text-sm font-serif mt-3 text-gray-700">Lastname</label>
-            <input type="text" name="lastname" required 
-                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
+            <input type="text" name="lastname" required class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-            <!-- Password Field -->
             <label class="text-left text-sm font-serif mt-3 text-gray-700">Password</label>
-            <input type="password" name="password" required 
-                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
+            <input type="password" name="password" required class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-            <!-- Confirm Password Field -->
             <label class="text-left text-sm font-serif mt-3 text-gray-700">Confirm Password</label>
-            <input type="password" name="confirm_password" required 
-                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
+            <input type="password" name="confirm_password" required class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-            <!-- Register Button -->
-            <button type="submit" 
-                    class="mt-6 py-3 bg-[#1f6fb2] text-white font-serif text-base rounded-full hover:bg-[#0a3d62] transition duration-300 shadow-md">
+            <button type="submit" class="mt-6 py-3 bg-[#1f6fb2] text-white font-serif text-base rounded-full hover:bg-[#0a3d62] transition duration-300 shadow-md">
                 REGISTER
             </button>
 
-            <!-- Login Link -->
             <a href="index.php" class="mt-3 text-black font-serif text-sm hover:underline">
                 Already Have an Account
             </a>
-
         </form>
-
     </div>
-
 </body>
 </html>
