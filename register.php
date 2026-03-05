@@ -5,128 +5,93 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="image/pnplogo.png">
     <title>PNP | Register</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Custom blur that Tailwind doesn't have by default */
+        .backdrop-blur-custom {
+            backdrop-filter: blur(10px);
+        }
+        body {
+            background-image: url("image/pnpBGlogo.jpg");
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+    </style>
 </head>
-<body>
-    
-    <div class="background"></div>
+<body class="h-screen flex items-center justify-center bg-[#0a3d62] relative">
 
-<div class="login-container">
+    <!-- Background Overlay -->
+    <div class="absolute inset-0 bg-black/20"></div>
 
-    <img src="image/pnplogo.png" class="logo">
+    <!-- Register Container -->
+    <div class="relative w-[420px] p-10 bg-white/35 backdrop-blur-custom rounded-2xl text-center shadow-xl max-h-[90vh] overflow-y-auto">
+        
+        <!-- Logo -->
+        <img src="image/pnplogo.png" class="w-20 mx-auto mb-3" alt="PNP Logo">
 
-    <h2>REGISTER</h2>
+        <!-- Title -->
+        <h2 class="text-3xl font-serif font-bold mb-5 text-gray-800">REGISTER</h2>
 
-    <form>
+        <!-- Register Form -->
+        <form action="admin/admin_dashboard.php" class="flex flex-col" method="POST">
+            
+            <!-- Email Field -->
+            <label class="text-left text-sm font-serif mt-2 text-gray-700">Email</label>
+            <input type="email" name="email" required 
+                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-        <label>Email</label>
-        <input type="email" required>
+            <!-- Rank Field -->
+            <label class="text-left text-sm font-serif mt-3 text-gray-700">Rank</label>
+            <select name="rank" required 
+                    class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition bg-white">
+                <option value="" disabled selected>Select Rank</option>
+                <option value="PO1">PO1</option>
+                <option value="PO2">PO2</option>
+                <option value="PO3">PO3</option>
+                <option value="SPO1">SPO1</option>
+                <option value="SPO2">SPO2</option>
+                <option value="SPO3">SPO3</option>
+                <option value="SPO4">SPO4</option>
+            </select>
 
-        <label>Rank</label>
-        <input type="rank" required>
+            <!-- Firstname Field -->
+            <label class="text-left text-sm font-serif mt-3 text-gray-700">Firstname</label>
+            <input type="text" name="firstname" required 
+                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-        <label>Firstname</label>
-        <input type="firstname" required>
+            <!-- Lastname Field -->
+            <label class="text-left text-sm font-serif mt-3 text-gray-700">Lastname</label>
+            <input type="text" name="lastname" required 
+                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-        <label>Lastname</label>
-        <input type="lastname" required>
+            <!-- Password Field -->
+            <label class="text-left text-sm font-serif mt-3 text-gray-700">Password</label>
+            <input type="password" name="password" required 
+                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-        <label>Password</label>
-        <input type="password" required>
+            <!-- Confirm Password Field -->
+            <label class="text-left text-sm font-serif mt-3 text-gray-700">Confirm Password</label>
+            <input type="password" name="confirm_password" required 
+                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-        <label>Confirm Password</label>
-        <input type="confirm-password" required>
+            <!-- Register Button -->
+            <button type="submit" 
+                    class="mt-6 py-3 bg-[#1f6fb2] text-white font-serif text-base rounded-full hover:bg-[#0a3d62] transition duration-300 shadow-md">
+                REGISTER
+            </button>
 
+            <!-- Login Link -->
+            <a href="index.php" class="mt-3 text-black font-serif text-sm hover:underline">
+                Already Have an Account
+            </a>
 
-        <button type="submit">REGISTER</button>
+        </form>
 
-        <a style="color: black;" href="index.php" class="register">Already Have an Account</a>
-
-    </form>
-
-</div>
-
+    </div>
 
 </body>
 </html>
-
-<style>
-    *{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:'Times New Roman', Times, serif;
-}
-
-body{
-height:100vh;
-display:flex;
-align-items:center;
-justify-content:center;
-background-image:url("image/pnpBGlogo.jpg");
-background-position:center;
-background-repeat:no-repeat;
-background-size:contain;
-background-color:#0a3d62;
-}
-
-.background{
-position:absolute;
-width:100%;
-height:100%;
-background:rgba(0,0,0,0.2);
-}
-
-.login-container{
-position:relative;
-width:420px;
-padding:40px;
-background:rgba(255,255,255,0.35);
-backdrop-filter:blur(10px);
-border-radius:20px;
-text-align:center;
-}
-
-.logo{
-width:80px;
-margin-bottom:10px;
-}
-
-h2{
-margin-bottom:20px;
-font-size:28px;
-}
-
-form{
-display:flex;
-flex-direction:column;
-}
-
-label{
-text-align:left;
-font-size:14px;
-margin-top:10px;
-}
-
-input{
-padding:10px;
-margin-top:5px;
-border:2px solid black;
-border-radius:3px;
-}
-
-button{
-margin-top:20px;
-padding:12px;
-background:#1f6fb2;
-color:white;
-font-size:16px;
-border:none;
-border-radius:25px;
-cursor:pointer;
-}
-
-.register{
-margin-top:10px;
-font-size:15px;
-}
-</style>

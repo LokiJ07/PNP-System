@@ -5,115 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="image/pnplogo.png">
     <title>PNP | Login</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Custom blur and background styles that Tailwind doesn't have by default */
+        .backdrop-blur-custom {
+            backdrop-filter: blur(5px);
+        }
+        body {
+            background-image: url("image/pnpBGlogo.jpg");
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+    </style>
 </head>
-<body>
-    
-    <div class="background"></div>
+<body class="h-screen flex items-center justify-center bg-[#0a3d62] relative">
 
-<div class="login-container">
+    <!-- Background Overlay -->
+    <div class="absolute inset-0 bg-black/20"></div>
 
-    <img src="image/pnplogo.png" class="logo">
+    <!-- Login Container -->
+    <div class="relative w-[420px] p-10 bg-white/35 backdrop-blur-custom rounded-2xl text-center shadow-xl">
+        
+        <!-- Logo -->
+        <img src="image/pnplogo.png" class="w-20 mx-auto mb-3" alt="PNP Logo">
 
-    <h2>LOGIN</h2>
+        <!-- Title -->
+        <h2 class="text-3xl font-serif font-bold mb-5 text-gray-800">LOGIN</h2>
 
-    <form action="admin/admin_dashboard.php">
+        <!-- Login Form -->
+        <form action="admin/admin_dashboard.php" class="flex flex-col" method="POST">
+            
+            <!-- Email Field -->
+            <label class="text-left text-sm font-serif mt-3 text-gray-700">Email</label>
+            <input type="email" name="email" required 
+                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-        <label>Email</label>
-        <input type="email">
+            <!-- Password Field -->
+            <label class="text-left text-sm font-serif mt-4 text-gray-700">Password</label>
+            <input type="password" name="password" required 
+                   class="p-2.5 mt-1 border-2 border-black rounded focus:outline-none focus:border-[#1f6fb2] transition">
 
-        <label>Password</label>
-        <input type="password">
+            <!-- Login Button -->
+            <button type="submit" 
+                    class="mt-6 py-3 bg-[#1f6fb2] text-white font-serif text-base rounded-full hover:bg-[#0a3d62] transition duration-300 shadow-md">
+                LOGIN
+            </button>
 
-        <button type="submit">LOGIN</button>
+            <!-- Register Link -->
+            <a href="register.php" class="mt-3 text-black font-serif text-sm hover:underline">
+                Register & Create Account
+            </a>
 
-        <a style="color:black; " href="register.php" class="register">Register & Create Account</a>
+        </form>
 
-    </form>
-
-</div>
-
+    </div>
 
 </body>
 </html>
-
-<style>
-    *{   
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:'Times New Roman', Times, serif;
-}
-
-body{
-height:100vh;
-display:flex;
-align-items:center;
-justify-content:center;
-background-image:url("image/pnpBGlogo.jpg");
-background-position:center;
-background-repeat:no-repeat;
-background-size:cover;
-background-color:#0a3d62;
-}
-
-.background{
-position:absolute;
-width:100%;
-height:100%;
-background:rgba(0,0,0,0.2);
-}
-
-.login-container{
-position:relative;
-width:420px;
-padding:40px;
-background:rgba(255,255,255,0.35);
-backdrop-filter:blur(5px);
-border-radius:20px;
-text-align:center;
-}
-
-.logo{
-width:80px;
-margin-bottom:10px;
-}
-
-h2{
-margin-bottom:20px;
-font-size:28px;
-}
-
-form{
-display:flex;
-flex-direction:column;
-}
-
-label{
-text-align:left;
-font-size:14px;
-margin-top:10px;
-}
-
-input{
-padding:10px;
-margin-top:5px;
-border:2px solid black;
-border-radius:3px;
-}
-
-button{
-margin-top:20px;
-padding:12px;
-background:#1f6fb2;
-color:white;
-font-size:16px;
-border:none;
-border-radius:25px;
-cursor:pointer;
-}
-
-.register{
-margin-top:10px;
-font-size:15px;
-}
-</style>
