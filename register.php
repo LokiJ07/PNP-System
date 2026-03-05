@@ -21,6 +21,9 @@
         <label>Email</label>
         <input type="email" required>
 
+        <label>Rank</label>
+        <input type="rank" required>
+
         <label>Firstname</label>
         <input type="firstname" required>
 
