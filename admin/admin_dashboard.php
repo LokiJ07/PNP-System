@@ -93,7 +93,7 @@
             </li>
             
             <li class="p-3 rounded hover:bg-[#1e4a6a] cursor-pointer">
-                <a href="accomplishment_report.php" class="text-white no-underline block">
+                <a href="all_reports.php" class="text-white no-underline block">
                     <i class="fas fa-file-alt mr-3"></i> Accomplishment Report
                 </a>
             </li>
