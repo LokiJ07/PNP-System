@@ -2,6 +2,7 @@
 // =====================================================
 // FILE: admin/accomplishment_report.php
 // PURPOSE: Generate and display accomplishment reports (APPROVED only)
+// FIXED: Added missing oplan_bakal and oplan_sita stats
 // =====================================================
 
 session_start();
@@ -38,11 +39,21 @@ $result = $conn->query("
 $stats = $result->fetch_assoc();
 $stats['total'] = $stats['patrols'] + $stats['checkpoints'] + $stats['oplans'];
 
+// Get oplan type counts (APPROVED only)
+$result = $conn->query("
+    SELECT 
+        (SELECT COUNT(*) FROM oplan_activities WHERE 1=1 $date_condition $officer_condition AND oplan_type = 'Oplan Bakal') as oplan_bakal,
+        (SELECT COUNT(*) FROM oplan_activities WHERE 1=1 $date_condition $officer_condition AND oplan_type = 'Oplan Sita') as oplan_sita
+");
+$oplan_counts = $result->fetch_assoc();
+$stats['oplan_bakal'] = $oplan_counts['oplan_bakal'] ?? 0;
+$stats['oplan_sita'] = $oplan_counts['oplan_sita'] ?? 0;
+
 // Personnel statistics (APPROVED only)
 $result = $conn->query("
     SELECT 
         (SELECT COALESCE(SUM(personnel_count), 0) FROM patrol_activities WHERE 1=1 $date_condition $officer_condition) as patrol_personnel,
-        (SELECT COALESCE(SUM(border_personnel + mobile_personnel), 0) FROM checkpoint_activities WHERE 1=1 $date_condition $officer_condition) as checkpoint_personnel,
+        (SELECT COALESCE(SUM(COALESCE(border_personnel, 0) + COALESCE(mobile_personnel, 0)), 0) FROM checkpoint_activities WHERE 1=1 $date_condition $officer_condition) as checkpoint_personnel,
         (SELECT COALESCE(SUM(personnel_count), 0) FROM oplan_activities WHERE 1=1 $date_condition $officer_condition) as oplan_personnel
 ");
 $personnel = $result->fetch_assoc();
@@ -74,6 +85,31 @@ $patrol_breakdown = $conn->query("
     GROUP BY patrol_type
 ");
 
+// Get checkpoint detailed statistics
+$checkpoint_data = $conn->query("
+    SELECT 
+        COUNT(*) as total_checkpoints,
+        COALESCE(SUM(border_control_ops), 0) as total_border_ops,
+        COALESCE(SUM(mobile_checkpoint_ops), 0) as total_mobile_ops,
+        COALESCE(SUM(tct_ovr_accomplishment), 0) as total_tct_ovr,
+        COALESCE(SUM(arrested_accomplishment), 0) as total_arrests,
+        COALESCE(SUM(COALESCE(border_personnel, 0) + COALESCE(mobile_personnel, 0)), 0) as total_personnel
+    FROM checkpoint_activities 
+    WHERE 1=1 $date_condition $officer_condition
+");
+
+// Get oplan detailed statistics
+$oplan_data = $conn->query("
+    SELECT 
+        COUNT(*) as total_oplans,
+        COALESCE(SUM(firearms_seized), 0) as total_firearms,
+        COALESCE(SUM(contraband_kg), 0) as total_contraband,
+        COALESCE(SUM(arrests_made), 0) as total_arrests,
+        COALESCE(SUM(personnel_count), 0) as total_personnel
+    FROM oplan_activities 
+    WHERE 1=1 $date_condition $officer_condition
+");
+
 // Get officer performance (APPROVED only)
 $officer_performance = null;
 if (!$officer_id) {
@@ -83,12 +119,14 @@ if (!$officer_id) {
             u.rank,
             u.first_name,
             u.last_name,
-            (SELECT COUNT(*) FROM patrol_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved') as patrols,
-            (SELECT COUNT(*) FROM checkpoint_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved') as checkpoints,
-            (SELECT COUNT(*) FROM oplan_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved') as oplans,
-            ((SELECT COUNT(*) FROM patrol_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved') +
-             (SELECT COUNT(*) FROM checkpoint_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved') +
-             (SELECT COUNT(*) FROM oplan_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved')) as total
+            COALESCE((SELECT COUNT(*) FROM patrol_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved'), 0) as patrols,
+            COALESCE((SELECT COUNT(*) FROM checkpoint_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved'), 0) as checkpoints,
+            COALESCE((SELECT COUNT(*) FROM oplan_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved'), 0) as oplans,
+            (
+                COALESCE((SELECT COUNT(*) FROM patrol_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved'), 0) +
+                COALESCE((SELECT COUNT(*) FROM checkpoint_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved'), 0) +
+                COALESCE((SELECT COUNT(*) FROM oplan_activities WHERE user_id = u.user_id AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved'), 0)
+            ) as total
         FROM users u
         WHERE u.role = 'user'
         HAVING total > 0
@@ -109,6 +147,10 @@ if ($officer_id) {
     }
     $stmt->close();
 }
+
+// Fetch checkpoint data for display
+$checkpoint_stats = $checkpoint_data->fetch_assoc();
+$oplan_stats = $oplan_data->fetch_assoc();
 ?>
 
 <!DOCTYPE html>
@@ -129,7 +171,6 @@ if ($officer_id) {
         
         /* PRINT STYLES - Optimized for printing from Republic */
         @media print {
-            /* Hide everything except the report content */
             .no-print, 
             .sidebar, 
             .flex-1 > .bg-white:first-of-type,
@@ -140,7 +181,6 @@ if ($officer_id) {
                 display: none !important;
             }
             
-            /* Reset body and html for printing */
             html, body {
                 background: white !important;
                 margin: 0 !important;
@@ -150,7 +190,6 @@ if ($officer_id) {
                 display: block !important;
             }
             
-            /* Main container adjustments */
             .flex, .bg-\[#0a3d62\] {
                 display: block !important;
                 background: white !important;
@@ -158,7 +197,6 @@ if ($officer_id) {
                 margin: 0 !important;
             }
             
-            /* Show only the print area */
             .print-area {
                 display: block !important;
                 background: white !important;
@@ -168,13 +206,11 @@ if ($officer_id) {
                 box-shadow: none !important;
             }
             
-            /* Ensure the Republic header is at the very top */
             .print-area .text-center:first-of-type {
                 margin-top: 0 !important;
                 padding-top: 0 !important;
             }
             
-            /* Table print optimization */
             table {
                 page-break-inside: avoid;
             }
@@ -188,30 +224,14 @@ if ($officer_id) {
                 display: table-header-group;
             }
             
-            tfoot {
-                display: table-footer-group;
-            }
-            
-            /* Page break controls */
-            .page-break-before {
-                page-break-before: always;
-            }
-            
-            .page-break-after {
-                page-break-after: always;
-            }
-            
-            /* Ensure text is black for printing */
             .text-\[#08324f\] {
                 color: black !important;
             }
             
-            /* Border colors for printing */
             .border-\[\#08324f\] {
                 border-color: black !important;
             }
             
-            /* Background colors become light gray for printing */
             .bg-blue-50, .bg-green-50, .bg-red-50, .bg-yellow-50 {
                 background-color: #f5f5f5 !important;
                 -webkit-print-color-adjust: exact;
@@ -219,7 +239,6 @@ if ($officer_id) {
             }
         }
         
-        /* Screen styles remain the same */
         .signature-line {
             border-top: 1px solid #000;
             width: 200px;
@@ -338,9 +357,9 @@ if ($officer_id) {
             </form>
         </div>
 
-        <!-- Report Content - This is what will print, starting with Republic header -->
+        <!-- Report Content -->
         <div class="print-area bg-white p-8 rounded-lg shadow-md">
-            <!-- REPUBLIC HEADER - This will be at the very top when printing -->
+            <!-- REPUBLIC HEADER -->
             <div class="text-center mb-8 border-b pb-4">
                 <div class="flex justify-center items-center gap-4 mb-2">
                     <img src="../image/pnplogo.png" class="w-16 h-16" alt="PNP Logo">
@@ -397,56 +416,82 @@ if ($officer_id) {
                         <p class="text-3xl font-bold text-[#08324f] mb-2"><?php echo $stats['patrols']; ?></p>
                         <div class="space-y-2">
                             <?php 
-                            $patrol_breakdown->data_seek(0);
-                            while ($p = $patrol_breakdown->fetch_assoc()): 
+                            if ($patrol_breakdown && $patrol_breakdown->num_rows > 0):
+                                $patrol_breakdown->data_seek(0);
+                                while ($p = $patrol_breakdown->fetch_assoc()): 
                             ?>
                             <div class="flex justify-between text-sm">
                                 <span><?php echo $p['patrol_type']; ?>:</span>
                                 <span class="font-semibold"><?php echo $p['count']; ?> (<?php echo $p['personnel']; ?> personnel)</span>
                             </div>
-                            <?php endwhile; ?>
+                            <?php 
+                                endwhile;
+                            else:
+                            ?>
+                            <div class="text-sm text-gray-500">No patrol reports</div>
+                            <?php endif; ?>
                         </div>
                     </div>
 
                     <!-- Checkpoints -->
                     <div class="border rounded-lg p-4">
                         <h4 class="font-semibold text-red-600 mb-3">Checkpoint Operations</h4>
-                        <p class="text-3xl font-bold text-[#08324f] mb-2"><?php echo $stats['checkpoints']; ?></p>
+                        <p class="text-3xl font-bold text-[#08324f] mb-2"><?php echo $checkpoint_stats['total_checkpoints'] ?? 0; ?></p>
                         <div class="space-y-2 text-sm">
                             <div class="flex justify-between">
+                                <span>Border Control Ops:</span>
+                                <span class="font-semibold"><?php echo $checkpoint_stats['total_border_ops'] ?? 0; ?></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Mobile Checkpoint Ops:</span>
+                                <span class="font-semibold"><?php echo $checkpoint_stats['total_mobile_ops'] ?? 0; ?></span>
+                            </div>
+                            <div class="flex justify-between">
                                 <span>TCT/OVR:</span>
-                                <span class="font-semibold"><?php echo $stats['tct_ovr']; ?></span>
+                                <span class="font-semibold"><?php echo $checkpoint_stats['total_tct_ovr'] ?? 0; ?></span>
                             </div>
                             <div class="flex justify-between">
                                 <span>Arrests:</span>
-                                <span class="font-semibold"><?php echo $accomplishments['checkpoint_arrests']; ?></span>
+                                <span class="font-semibold"><?php echo $checkpoint_stats['total_arrests'] ?? 0; ?></span>
+                            </div>
+                            <div class="flex justify-between border-t pt-2 mt-2">
+                                <span>Personnel Deployed:</span>
+                                <span class="font-semibold"><?php echo $checkpoint_stats['total_personnel'] ?? 0; ?></span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Oplan -->
+                    <!-- Oplan - FIXED: Added null coalescing operators -->
                     <div class="border rounded-lg p-4">
                         <h4 class="font-semibold text-green-600 mb-3">Oplan Operations</h4>
-                        <p class="text-3xl font-bold text-[#08324f] mb-2"><?php echo $stats['oplans']; ?></p>
+                        <p class="text-3xl font-bold text-[#08324f] mb-2"><?php echo $oplan_stats['total_oplans'] ?? 0; ?></p>
                         <div class="space-y-2 text-sm">
                             <div class="flex justify-between">
+                                <span>Oplan Bakal:</span>
+                                <span class="font-semibold"><?php echo $stats['oplan_bakal'] ?? 0; ?></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Oplan Sita:</span>
+                                <span class="font-semibold"><?php echo $stats['oplan_sita'] ?? 0; ?></span>
+                            </div>
+                            <div class="flex justify-between">
                                 <span>Firearms Seized:</span>
-                                <span class="font-semibold"><?php echo $stats['firearms']; ?></span>
+                                <span class="font-semibold"><?php echo $stats['firearms'] ?? 0; ?></span>
                             </div>
                             <div class="flex justify-between">
                                 <span>Contraband (kg):</span>
-                                <span class="font-semibold"><?php echo number_format($stats['contraband'], 2); ?></span>
+                                <span class="font-semibold"><?php echo isset($stats['contraband']) ? number_format($stats['contraband'], 2) : '0.00'; ?></span>
                             </div>
                             <div class="flex justify-between">
                                 <span>Arrests:</span>
-                                <span class="font-semibold"><?php echo $accomplishments['oplan_arrests']; ?></span>
+                                <span class="font-semibold"><?php echo $stats['oplan_arrests'] ?? 0; ?></span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Officer Performance (if no specific officer selected) -->
+            <!-- OFFICER PERFORMANCE TABLE -->
             <?php if (!$officer_id && $officer_performance && $officer_performance->num_rows > 0): ?>
             <div class="mb-8">
                 <h3 class="text-lg font-semibold text-[#08324f] mb-4">II. OFFICER PERFORMANCE</h3>
@@ -463,7 +508,10 @@ if ($officer_id) {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php while ($o = $officer_performance->fetch_assoc()): ?>
+                            <?php 
+                            $officer_performance->data_seek(0);
+                            while ($o = $officer_performance->fetch_assoc()): 
+                            ?>
                             <tr class="border-b hover:bg-gray-50">
                                 <td class="p-2"><?php echo $o['rank']; ?></td>
                                 <td class="p-2"><?php echo $o['first_name'] . ' ' . $o['last_name']; ?></td>
@@ -492,22 +540,29 @@ if ($officer_id) {
                     <p class="mb-2">
                         Patrol operations totaled <strong><?php echo $stats['patrols']; ?></strong> including 
                         <?php 
-                        $patrol_breakdown->data_seek(0);
-                        $patrol_details = [];
-                        while ($p = $patrol_breakdown->fetch_assoc()) {
-                            $patrol_details[] = $p['count'] . ' ' . strtolower($p['patrol_type']);
-                        }
-                        echo implode(', ', $patrol_details); 
+                        if ($patrol_breakdown && $patrol_breakdown->num_rows > 0):
+                            $patrol_breakdown->data_seek(0);
+                            $patrol_details = [];
+                            while ($p = $patrol_breakdown->fetch_assoc()) {
+                                $patrol_details[] = $p['count'] . ' ' . strtolower($p['patrol_type']);
+                            }
+                            echo implode(', ', $patrol_details); 
+                        else:
+                            echo 'no patrols';
+                        endif;
                         ?>.
                     </p>
                     <p class="mb-2">
-                        Checkpoint operations recorded <strong><?php echo $accomplishments['tct_ovr']; ?> TCT/OVR accomplishments</strong> 
-                        and <strong><?php echo $accomplishments['checkpoint_arrests']; ?> arrests</strong>.
+                        Checkpoint operations totaled <strong><?php echo $checkpoint_stats['total_checkpoints'] ?? 0; ?></strong> with 
+                        <strong><?php echo $checkpoint_stats['total_border_ops'] ?? 0; ?> border control ops</strong>,
+                        <strong><?php echo $checkpoint_stats['total_mobile_ops'] ?? 0; ?> mobile ops</strong>,
+                        <strong><?php echo $checkpoint_stats['total_tct_ovr'] ?? 0; ?> TCT/OVR accomplishments</strong>, and 
+                        <strong><?php echo $checkpoint_stats['total_arrests'] ?? 0; ?> arrests</strong>.
                     </p>
                     <p>
-                        Oplan operations resulted in <strong><?php echo $stats['firearms']; ?> firearms seized</strong>, 
-                        <strong><?php echo number_format($stats['contraband'], 2); ?> kg of contraband</strong>, and 
-                        <strong><?php echo $accomplishments['oplan_arrests']; ?> arrests</strong>.
+                        Oplan operations resulted in <strong><?php echo $stats['firearms'] ?? 0; ?> firearms seized</strong>, 
+                        <strong><?php echo isset($stats['contraband']) ? number_format($stats['contraband'], 2) : '0.00'; ?> kg of contraband</strong>, and 
+                        <strong><?php echo $stats['oplan_arrests'] ?? 0; ?> arrests</strong>.
                     </p>
                 </div>
             </div>
@@ -526,7 +581,7 @@ if ($officer_id) {
                 <div class="text-center">
                     <p class="font-bold">Noted by:</p>
                     <div class="mt-8">
-                        <p class="font-semibold">PMAJ. MARIA SANTOS</p>
+                        <p class="font-semibold">PLTCOL. ROGIE O ORTENTIO</p>
                         <p class="text-sm">Chief of Police</p>
                         <p class="text-xs">Manolo Fortich MPS</p>
                     </div>
