@@ -1,59 +1,60 @@
 <?php
 // =====================================================
 // FILE: includes/login_process.php
-// PURPOSE: Process login form submission
+// PURPOSE: Process user login with password verification
 // =====================================================
-
+session_start();
 require_once '../config/db_connect.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     
-    // Validate input
     if (empty($email) || empty($password)) {
-        $_SESSION['error'] = 'Please enter email and password';
+        $_SESSION['error'] = "Please enter both email and password";
         header('Location: ../index.php');
         exit();
     }
     
-    // Query user from database
-    $stmt = $conn->prepare("SELECT user_id, badge_number, rank, first_name, last_name, email, password, role, account_status FROM users WHERE email = ?");
+    // Get user by email
+    $stmt = $conn->prepare("SELECT user_id, email, password, first_name, last_name, rank, role, account_status FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
     
-    if ($result->num_rows === 1) {
+    if ($result->num_rows == 1) {
         $user = $result->fetch_assoc();
         
         // Check if account is active
         if ($user['account_status'] !== 'active') {
-            $_SESSION['error'] = 'Your account is inactive. Please contact administrator.';
+            $_SESSION['error'] = "Your account is not active. Please contact administrator.";
             header('Location: ../index.php');
             exit();
         }
         
-        // Verify password (you should use password_verify with hashed passwords)
-        // For demo purposes, using plain text comparison
-        if ($password === 'password123' || ($user['email'] === 'admin@pnp.gov.ph' && $password === 'admin123')) {
+        // =====================================================
+        // IMPORTANT: VERIFY PASSWORD USING password_verify()
+        // =====================================================
+        if (password_verify($password, $user['password'])) {
             // Set session variables
             $_SESSION['user_id'] = $user['user_id'];
-            $_SESSION['badge_number'] = $user['badge_number'];
-            $_SESSION['rank'] = $user['rank'];
+            $_SESSION['email'] = $user['email'];
+            $_SESSION['full_name'] = $user['first_name'] . ' ' . $user['last_name'];
             $_SESSION['first_name'] = $user['first_name'];
             $_SESSION['last_name'] = $user['last_name'];
-            $_SESSION['full_name'] = $user['rank'] . ' ' . $user['first_name'] . ' ' . $user['last_name'];
-            $_SESSION['email'] = $user['email'];
+            $_SESSION['rank'] = $user['rank'];
             $_SESSION['role'] = $user['role'];
-            
-            // Update last login
-            $update = $conn->prepare("UPDATE users SET last_login = NOW() WHERE user_id = ?");
-            $update->bind_param("i", $user['user_id']);
-            $update->execute();
-            $update->close();
+            $_SESSION['logged_in'] = true;
             
             // Log the login activity
-            logActivity($user['user_id'], 'LOGIN', 'users', $user['user_id'], 'User logged in', $conn);
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+            $log_stmt = $conn->prepare("
+                INSERT INTO activity_logs (user_id, action, table_name, record_id, details, ip_address) 
+                VALUES (?, 'LOGIN', 'users', ?, 'User logged in', ?)
+            ");
+            $log_stmt->bind_param("iis", $user['user_id'], $user['user_id'], $ip);
+            $log_stmt->execute();
+            $log_stmt->close();
             
             // Redirect based on role
             if ($user['role'] === 'admin') {
@@ -63,15 +64,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             exit();
         } else {
-            $_SESSION['error'] = 'Invalid password';
+            // Password verification failed
+            error_log("Failed login attempt for email: $email - Invalid password");
+            $_SESSION['error'] = "Invalid email or password";
         }
     } else {
-        $_SESSION['error'] = 'Email not found';
+        // No user found with that email
+        error_log("Failed login attempt for email: $email - User not found");
+        $_SESSION['error'] = "Invalid email or password";
     }
     
     $stmt->close();
-    $conn->close();
-    
     header('Location: ../index.php');
     exit();
 } else {

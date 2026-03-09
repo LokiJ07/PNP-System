@@ -2,6 +2,7 @@
 // =====================================================
 // FILE: admin/admin_dashboard.php
 // PURPOSE: Admin dashboard with real data from database
+// ADDED: Approved report counts without changing layout
 // =====================================================
 
 require_once '../config/db_connect.php';
@@ -29,6 +30,32 @@ $stats['total_checkpoints'] = $result->fetch_assoc()['total'];
 // Total oplans
 $result = $conn->query("SELECT COUNT(*) as total FROM oplan_activities");
 $stats['total_oplans'] = $result->fetch_assoc()['total'];
+
+// Approved counts for success rate calculation
+$result = $conn->query("SELECT COUNT(*) as total FROM patrol_activities WHERE status = 'approved'");
+$stats['approved_patrols'] = $result->fetch_assoc()['total'];
+
+$result = $conn->query("SELECT COUNT(*) as total FROM checkpoint_activities WHERE status = 'approved'");
+$stats['approved_checkpoints'] = $result->fetch_assoc()['total'];
+
+$result = $conn->query("SELECT COUNT(*) as total FROM oplan_activities WHERE status = 'approved'");
+$stats['approved_oplans'] = $result->fetch_assoc()['total'];
+
+// Calculate overall success rate (approved vs total)
+$total_reports = $stats['total_patrols'] + $stats['total_checkpoints'] + $stats['total_oplans'];
+$total_approved = $stats['approved_patrols'] + $stats['approved_checkpoints'] + $stats['approved_oplans'];
+
+// Only count reports that have been decided (approved or rejected) for success rate
+$result = $conn->query("
+    SELECT 
+        (SELECT COUNT(*) FROM patrol_activities WHERE status IN ('approved', 'rejected')) +
+        (SELECT COUNT(*) FROM checkpoint_activities WHERE status IN ('approved', 'rejected')) +
+        (SELECT COUNT(*) FROM oplan_activities WHERE status IN ('approved', 'rejected')) as decided
+");
+$decided_reports = $result->fetch_assoc()['decided'] ?? 0;
+
+// Calculate success rate based on decided reports
+$stats['success_rate'] = $decided_reports > 0 ? round(($total_approved / $decided_reports) * 100, 1) : 0;
 
 // Foot patrols
 $result = $conn->query("SELECT COUNT(*) as total FROM patrol_activities WHERE patrol_type = 'Foot Patrol'");
@@ -210,8 +237,8 @@ $top_officers = $conn->query("
 
         <!-- Admin Info -->
         <div class="bg-[#1e4a6a] p-3 rounded-lg mb-4 text-center">
-            <p class="text-sm text-yellow-400 font-medium"><?php echo $_SESSION['full_name']; ?></p>
-            <p class="text-xs text-gray-300 mt-1"><?php echo $_SESSION['email']; ?></p>
+            <p class="text-sm text-yellow-400 font-medium"><?php echo $_SESSION['full_name'] ?? 'Admin'; ?></p>
+            <p class="text-xs text-gray-300 mt-1"><?php echo $_SESSION['email'] ?? 'admin@pnp.gov.ph'; ?></p>
         </div>
 
         <ul class="space-y-1">
@@ -276,7 +303,7 @@ $top_officers = $conn->query("
         <!-- Header with PNP Gold Accent -->
         <div class="bg-white p-6 rounded-lg shadow-md mb-6 border-l-4 border-[#ffc107]">
             <h2 class="text-2xl font-bold text-[#0a2b3c]">Dashboard Overview</h2>
-            <p class="text-gray-600 mt-1">Welcome back, <?php echo $_SESSION['full_name']; ?>. System monitoring panel.</p>
+            <p class="text-gray-600 mt-1">Welcome back, <?php echo $_SESSION['full_name'] ?? 'Admin'; ?>. System monitoring panel.</p>
         </div>
 
         <!-- QUICK STATS ROW - Summary Cards -->
@@ -311,7 +338,7 @@ $top_officers = $conn->query("
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="text-xs text-gray-500 uppercase tracking-wider">Total Operations</p>
-                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1"><?php echo $stats['total_patrols'] + $stats['total_checkpoints'] + $stats['total_oplans']; ?></p>
+                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1"><?php echo $total_reports; ?></p>
                     </div>
                     <div class="w-12 h-12 bg-[#c41e3a] bg-opacity-10 rounded-full flex items-center justify-center">
                         <i class="fas fa-calendar-check text-[#c41e3a] text-xl"></i>
@@ -324,13 +351,17 @@ $top_officers = $conn->query("
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="text-xs text-gray-500 uppercase tracking-wider">Success Rate</p>
-                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1">96%</p>
+                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1"><?php echo $stats['success_rate']; ?>%</p>
                     </div>
                     <div class="w-12 h-12 bg-[#ffc107] bg-opacity-10 rounded-full flex items-center justify-center">
                         <i class="fas fa-trophy text-[#ffc107] text-xl"></i>
                     </div>
                 </div>
-                <p class="text-xs text-green-600 mt-2"><i class="fas fa-star mr-1"></i> Excellent performance</p>
+                <div class="mt-2 flex justify-between text-xs">
+                    <span class="text-green-600"><i class="fas fa-check-circle"></i> <?php echo $total_approved; ?> approved</span>
+                    <span class="text-gray-500">of <?php echo $decided_reports; ?> decided</span>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Excludes <?php echo $total_reports - $decided_reports; ?> pending</p>
             </div>
         </div>
 
@@ -411,6 +442,11 @@ $top_officers = $conn->query("
                         <p class="text-xs text-gray-500">Checkpoint Arrests</p>
                         <p class="text-xl font-bold text-[#0a2b3c]"><?php echo $stats['checkpoint_arrests']; ?></p>
                     </div>
+                    <!-- ADDED: Approved Checkpoints - Small addition without changing layout -->
+                    <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-green-500">
+                        <p class="text-xs text-gray-500">Approved Checkpoints</p>
+                        <p class="text-xl font-bold text-[#0a2b3c]"><?php echo $stats['approved_checkpoints']; ?></p>
+                    </div>
                 </div>
             </div>
 
@@ -446,7 +482,7 @@ $top_officers = $conn->query("
                     </div>
                 </div>
                 <!-- Oplan Accomplishments Summary -->
-                <div class="grid grid-cols-2 gap-4 mt-4">
+                <div class="grid grid-cols-3 gap-4 mt-4">
                     <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-[#0a2b3c]">
                         <p class="text-xs text-gray-500">Bakal Firearms</p>
                         <p class="text-xl font-bold text-[#0a2b3c]"><?php echo $stats['firearms']; ?></p>
@@ -454,6 +490,11 @@ $top_officers = $conn->query("
                     <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-[#ffc107]">
                         <p class="text-xs text-gray-500">Sita Contraband</p>
                         <p class="text-xl font-bold text-[#0a2b3c]"><?php echo $stats['contraband']; ?> kg</p>
+                    </div>
+                    <!-- ADDED: Approved Oplans - Small addition without changing layout -->
+                    <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-green-500">
+                        <p class="text-xs text-gray-500">Approved Oplans</p>
+                        <p class="text-xl font-bold text-[#0a2b3c]"><?php echo $stats['approved_oplans']; ?></p>
                     </div>
                 </div>
             </div>

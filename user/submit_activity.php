@@ -2,6 +2,7 @@
 // =====================================================
 // FILE: user/submit_activity.php
 // PURPOSE: Process activity form submission
+// FIXED: Added checkpoint_arrests handling
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
@@ -50,7 +51,7 @@ if (strpos($activity_type, 'patrol') !== false) {
         case 'motor_patrol': $patrol_type = 'Motorcycle Patrol'; break;
     }
     
-    $personnel = $_POST['personnel_count'] ?? 1;
+    $personnel = isset($_POST['personnel_count']) && $_POST['personnel_count'] !== '' ? (int)$_POST['personnel_count'] : 1;
     $vehicle = $_POST['vehicle_number'] ?? null;
     
     $stmt = $conn->prepare("
@@ -72,22 +73,24 @@ if (strpos($activity_type, 'patrol') !== false) {
     }
     
 } elseif ($activity_type === 'checkpoint') {
-    // Checkpoint activity
-    $border_ops = $_POST['border_control_ops'] ?? 0;
-    $mobile_ops = $_POST['mobile_checkpoint_ops'] ?? 0;
-    $tct_ovr = $_POST['tct_ovr'] ?? 0;
+    // Checkpoint activity - INCLUDES ARRESTS
+    $border_ops = isset($_POST['border_control_ops']) && $_POST['border_control_ops'] !== '' ? (int)$_POST['border_control_ops'] : 0;
+    $mobile_ops = isset($_POST['mobile_checkpoint_ops']) && $_POST['mobile_checkpoint_ops'] !== '' ? (int)$_POST['mobile_checkpoint_ops'] : 0;
+    $tct_ovr = isset($_POST['tct_ovr']) && $_POST['tct_ovr'] !== '' ? (int)$_POST['tct_ovr'] : 0;
+    $arrests = isset($_POST['checkpoint_arrests']) && $_POST['checkpoint_arrests'] !== '' ? (int)$_POST['checkpoint_arrests'] : 0;
+    $personnel = isset($_POST['personnel_count']) && $_POST['personnel_count'] !== '' ? (int)$_POST['personnel_count'] : 1;
     
     $stmt = $conn->prepare("
         INSERT INTO checkpoint_activities 
         (user_id, barangay_id, specific_location, checkpoint_date, checkpoint_time,
-         border_control_ops, mobile_checkpoint_ops, tct_ovr_accomplishment,
+         border_control_ops, mobile_checkpoint_ops, tct_ovr_accomplishment, arrested_accomplishment,
          accomplishment_description, latitude, longitude, gps_accuracy, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     ");
     
     $stmt->bind_param("iisssiiisssdd", 
         $user_id, $barangay_id, $specific_location, $activity_date, $activity_time,
-        $border_ops, $mobile_ops, $tct_ovr, $accomplishment, 
+        $border_ops, $mobile_ops, $tct_ovr, $arrests, $accomplishment, 
         $latitude, $longitude, $gps_accuracy
     );
     
@@ -100,11 +103,11 @@ if (strpos($activity_type, 'patrol') !== false) {
 } elseif ($activity_type === 'oplan_bakal' || $activity_type === 'oplan_sita') {
     // Oplan activity
     $oplan_type = ($activity_type === 'oplan_bakal') ? 'Oplan Bakal' : 'Oplan Sita';
-    $personnel = $_POST['personnel_count'] ?? 1;
-    $operations = $_POST['operations_count'] ?? 1;
-    $arrests = $_POST['oplan_arrests'] ?? 0;
-    $firearms = $_POST['firearms_seized'] ?? 0;
-    $contraband = $_POST['contraband_kg'] ?? 0;
+    $personnel = isset($_POST['personnel_count']) && $_POST['personnel_count'] !== '' ? (int)$_POST['personnel_count'] : 1;
+    $operations = isset($_POST['operations_count']) && $_POST['operations_count'] !== '' ? (int)$_POST['operations_count'] : 1;
+    $arrests = isset($_POST['oplan_arrests']) && $_POST['oplan_arrests'] !== '' ? (int)$_POST['oplan_arrests'] : 0;
+    $firearms = isset($_POST['firearms_seized']) && $_POST['firearms_seized'] !== '' ? (int)$_POST['firearms_seized'] : 0;
+    $contraband = isset($_POST['contraband_kg']) && $_POST['contraband_kg'] !== '' ? (float)$_POST['contraband_kg'] : 0;
     
     $stmt = $conn->prepare("
         INSERT INTO oplan_activities 

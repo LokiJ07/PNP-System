@@ -10,6 +10,9 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_NAME', 'pnp_manolo_fortich');
 
+// Set Philippine timezone (GLOBAL for the app)
+date_default_timezone_set('Asia/Manila');
+
 // Create connection
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 

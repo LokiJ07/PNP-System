@@ -126,6 +126,12 @@ $stats['tct_ovr'] = $result->fetch_assoc()['total'] ?? 0;
                 </a>
             </li>
 
+           <li class="p-3 rounded hover:bg-[#1e4a6a] cursor-pointer">
+                <a href="accomplishment_report.php" class="text-white no-underline block">
+                    <i class="fas fa-file-alt mr-3"></i> Accomplishment Report
+                </a>
+            </li>
+
             <li class="p-3 rounded hover:bg-[#0a3d62] cursor-pointer mt-5 pt-4 border-t border-[#1a4b6d]">
                 <a href="../logout.php" class="text-white no-underline block">
                     <i class="fas fa-sign-out-alt mr-3"></i> Logout

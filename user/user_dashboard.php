@@ -1,6 +1,7 @@
 <?php
 // =====================================================
 // FILE: user/user_dashboard.php (FIXED WORKING VERSION)
+// ADDED: Arrests field to checkpoint form
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
@@ -102,6 +103,11 @@ while ($row = $barangays->fetch_assoc()) {
     $barangay_data[] = $row;
 }
 $barangays->data_seek(0); // Reset pointer
+
+// Set Philippine Time (UTC+8)
+date_default_timezone_set('Asia/Manila');
+$current_date = date('Y-m-d');
+$current_time = date('H:i');
 ?>
 
 <!DOCTYPE html>
@@ -421,13 +427,13 @@ $barangays->data_seek(0); // Reset pointer
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
-                        <input type="date" name="activity_date" required value="<?php echo date('Y-m-d'); ?>" 
+                        <input type="date" name="activity_date" id="activity_date" required value="<?php echo $current_date; ?>" 
                                class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Time *</label>
-                        <input type="time" name="activity_time" required value="<?php echo date('H:i'); ?>" 
+                        <input type="time" name="activity_time" id="activity_time" required value="<?php echo $current_time; ?>" 
                                class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
                     </div>
 
@@ -446,10 +452,10 @@ $barangays->data_seek(0); // Reset pointer
                     </div>
                 </div>
 
-                <!-- Checkpoint Fields -->
+                <!-- Checkpoint Fields - UPDATED with Arrests field -->
                 <div id="checkpointFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
                     <h4 class="font-medium text-sm mb-3 text-[#08324f]">Checkpoint Details</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Border Control Ops</label>
                             <input type="number" name="border_control_ops" value="0" min="0" class="w-full p-2 text-sm border rounded">
@@ -461,6 +467,10 @@ $barangays->data_seek(0); // Reset pointer
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">TCT/OVR Accomplishments</label>
                             <input type="number" name="tct_ovr" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Arrests Made</label>
+                            <input type="number" name="checkpoint_arrests" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                     </div>
                 </div>
@@ -601,7 +611,30 @@ $barangays->data_seek(0); // Reset pointer
         // Initialize Map
         document.addEventListener('DOMContentLoaded', function() {
             initMap();
+            setPhilippineDateTime();
         });
+
+        // Function to set Philippine date and time
+        function setPhilippineDateTime() {
+            const now = new Date();
+            // Philippine time is UTC+8
+            const phTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+            
+            // Format date as YYYY-MM-DD
+            const year = phTime.getUTCFullYear();
+            const month = String(phTime.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(phTime.getUTCDate()).padStart(2, '0');
+            const phDate = `${year}-${month}-${day}`;
+            
+            // Format time as HH:MM (24-hour)
+            const hours = String(phTime.getUTCHours()).padStart(2, '0');
+            const minutes = String(phTime.getUTCMinutes()).padStart(2, '0');
+            const phTimeStr = `${hours}:${minutes}`;
+            
+            // Set the input values
+            document.getElementById('activity_date').value = phDate;
+            document.getElementById('activity_time').value = phTimeStr;
+        }
 
         function initMap() {
             if (!document.getElementById('map')) return;
@@ -617,11 +650,46 @@ $barangays->data_seek(0); // Reset pointer
             map.on('click', function(e) {
                 placeMarker(e.latlng.lat, e.latlng.lng);
                 reverseGeocode(e.latlng.lat, e.latlng.lng);
+                findNearestBarangay(e.latlng.lat, e.latlng.lng);
             });
 
             window.addEventListener('orientationchange', function() {
                 setTimeout(() => map.invalidateSize(), 200);
             });
+        }
+
+        // Function to find the nearest barangay based on coordinates
+        function findNearestBarangay(lat, lng) {
+            let nearestBarangay = null;
+            let minDistance = Infinity;
+            
+            for (let id in barangayCoords) {
+                const b = barangayCoords[id];
+                const distance = calculateDistance(lat, lng, b.lat, b.lng);
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestBarangay = { id: id, name: b.name };
+                }
+            }
+            
+            if (nearestBarangay && minDistance < 2) {
+                document.getElementById('selectedBarangayId').value = nearestBarangay.id;
+                const select = document.getElementById('barangaySelect');
+                select.value = nearestBarangay.id;
+            }
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
         }
 
         function placeMarker(lat, lng) {
@@ -693,8 +761,10 @@ $barangays->data_seek(0); // Reset pointer
                         
                         placeMarker(lat, lng);
                         reverseGeocode(lat, lng);
+                        findNearestBarangay(lat, lng);
                         document.getElementById('gps_accuracy').value = accuracy;
                         document.getElementById('locationText').innerHTML = `Your location (accuracy: ${accuracy.toFixed(1)}m)`;
+                        setPhilippineDateTime();
                     },
                     function(error) {
                         let msg = 'Location error: ';
@@ -726,6 +796,7 @@ $barangays->data_seek(0); // Reset pointer
             document.getElementById('selectedLng').value = '';
             document.getElementById('selectedBarangayId').value = '';
             document.getElementById('barangaySelect').value = '';
+            setPhilippineDateTime();
         }
 
         function toggleActivityFields(activityType) {
