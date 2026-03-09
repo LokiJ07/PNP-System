@@ -1,3 +1,109 @@
+<?php
+// =====================================================
+// FILE: user/user_dashboard.php (FIXED WORKING VERSION)
+// =====================================================
+session_start();
+require_once '../config/db_connect.php';
+
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../index.php');
+    exit();
+}
+
+$user_id = $_SESSION['user_id'];
+
+// Get user information from database
+$stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$user = $stmt->get_result()->fetch_assoc();
+
+if (!$user) {
+    session_destroy();
+    header('Location: ../index.php');
+    exit();
+}
+
+// Get barangays for dropdown
+$barangays = $conn->query("SELECT barangay_id, barangay_name, latitude, longitude FROM barangays ORDER BY barangay_name");
+
+// Get user's recent activities
+$recent = [];
+
+// Recent patrols
+$patrols = $conn->query("
+    SELECT 'patrol' as type, patrol_type as subtype, specific_location, 
+           patrol_date as activity_date, patrol_time as activity_time, status,
+           submitted_at
+    FROM patrol_activities 
+    WHERE user_id = $user_id
+    ORDER BY submitted_at DESC
+    LIMIT 3
+");
+while ($row = $patrols->fetch_assoc()) $recent[] = $row;
+
+// Recent checkpoints
+$checkpoints = $conn->query("
+    SELECT 'checkpoint' as type, 'Checkpoint' as subtype, specific_location,
+           checkpoint_date as activity_date, checkpoint_time as activity_time, status,
+           submitted_at
+    FROM checkpoint_activities 
+    WHERE user_id = $user_id
+    ORDER BY submitted_at DESC
+    LIMIT 3
+");
+while ($row = $checkpoints->fetch_assoc()) $recent[] = $row;
+
+// Recent oplans
+$oplans = $conn->query("
+    SELECT 'oplan' as type, oplan_type as subtype, specific_location,
+           oplan_date as activity_date, oplan_time as activity_time, status,
+           submitted_at
+    FROM oplan_activities 
+    WHERE user_id = $user_id
+    ORDER BY submitted_at DESC
+    LIMIT 3
+");
+while ($row = $oplans->fetch_assoc()) $recent[] = $row;
+
+// Sort by most recent
+usort($recent, function($a, $b) {
+    return strtotime($b['submitted_at']) - strtotime($a['submitted_at']);
+});
+$recent = array_slice($recent, 0, 5);
+
+// Get user stats
+$stats = [];
+
+$result = $conn->query("SELECT COUNT(*) as total FROM patrol_activities WHERE user_id = $user_id");
+$stats['patrols'] = $result->fetch_assoc()['total'];
+
+$result = $conn->query("SELECT COUNT(*) as total FROM checkpoint_activities WHERE user_id = $user_id");
+$stats['checkpoints'] = $result->fetch_assoc()['total'];
+
+$result = $conn->query("SELECT COUNT(*) as total FROM oplan_activities WHERE user_id = $user_id");
+$stats['oplans'] = $result->fetch_assoc()['total'];
+
+$result = $conn->query("
+    SELECT (
+        SELECT COUNT(*) FROM patrol_activities WHERE user_id = $user_id AND status = 'pending'
+    ) + (
+        SELECT COUNT(*) FROM checkpoint_activities WHERE user_id = $user_id AND status = 'pending'
+    ) + (
+        SELECT COUNT(*) FROM oplan_activities WHERE user_id = $user_id AND status = 'pending'
+    ) as pending
+");
+$stats['pending'] = $result->fetch_assoc()['pending'] ?? 0;
+
+// Store barangays for JavaScript
+$barangay_data = [];
+while ($row = $barangays->fetch_assoc()) {
+    $barangay_data[] = $row;
+}
+$barangays->data_seek(0); // Reset pointer
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,7 +120,6 @@
     <!-- Leaflet JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* Custom styles for map */
         #map {
             height: 400px;
             width: 100%;
@@ -53,18 +158,13 @@
         }
         .dropdown-content { 
             display: none; 
-            max-height: 0;
-            opacity: 0;
-            transition: all 0.3s ease;
         }
         .dropdown.active .dropdown-content { 
-            display: block;
-            max-height: 300px;
-            opacity: 1;
+            display: block; 
         }
-        .rotate-180 { transform: rotate(180deg); }
-        
-        /* Mobile optimizations */
+        .rotate-180 { 
+            transform: rotate(180deg); 
+        }
         @media (max-width: 640px) {
             .sidebar-mobile {
                 position: fixed;
@@ -77,33 +177,45 @@
             .sidebar-mobile.open {
                 left: 0;
             }
-            .main-content-mobile {
-                width: 100%;
-                margin-left: 0;
-            }
-            .mobile-menu-btn {
-                display: block;
-            }
         }
-        
-        /* Touch-friendly buttons */
         button, .clickable {
             min-height: 44px;
             min-width: 44px;
         }
-        
-        /* Better scrolling on mobile */
-        .overflow-scroll-touch {
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        /* Hide scrollbar but keep functionality */
         .hide-scrollbar {
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
+        }
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        .error-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ef4444;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
@@ -117,51 +229,41 @@
     <!-- Mobile Menu Overlay -->
     <div id="menuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden" onclick="closeMobileMenu()"></div>
 
-    <!-- ===== SIMPLIFIED SIDEBAR - Only Profile and Logout ===== -->
+    <!-- Sidebar -->
     <div id="sidebar" class="w-full md:w-[240px] bg-[#08324f] text-white p-4 md:p-5 md:sticky md:top-0 md:h-screen overflow-y-auto sidebar-mobile fixed top-0 left-[-100%] h-screen z-50 transition-all duration-300 ease-in-out">
-        <!-- Close button for mobile -->
         <button id="closeSidebar" class="md:hidden absolute top-4 right-4 text-white text-xl">
             <i class="fas fa-times"></i>
         </button>
         
-        <!-- Logo -->
         <div class="flex items-center gap-3 mb-6 pb-3 border-b border-[#1a4b6d] mt-12 md:mt-0">
             <img src="../image/pnplogo.png" class="w-8 h-8 md:w-10 md:h-10 object-contain" alt="PNP Logo">
             <h2 class="text-lg md:text-xl font-semibold">PNP User</h2>
         </div>
 
-        <!-- ===== USER PROFILE SECTION ===== -->
+        <!-- User Profile Section -->
         <div class="bg-gradient-to-b from-[#0a3d62] to-[#08324f] p-5 rounded-xl mb-6 text-center border border-[#1a4b6d] shadow-lg">
-            <!-- Profile Avatar -->
             <div class="relative mx-auto w-20 h-20 mb-3">
                 <div class="absolute inset-0 bg-yellow-400 rounded-full animate-pulse opacity-20"></div>
                 <div class="relative w-full h-full bg-[#1f6fb2] rounded-full flex items-center justify-center border-3 border-yellow-400 shadow-lg">
-                    <span class="text-3xl font-bold text-white">J</span>
+                    <span class="text-3xl font-bold text-white"><?php echo substr($user['first_name'], 0, 1) . substr($user['last_name'], 0, 1); ?></span>
                 </div>
                 <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
             </div>
             
-            <!-- User Details -->
-            <h3 class="text-lg font-bold text-yellow-400">PO3 Juan Dela Cruz</h3>
-            <p class="text-xs text-gray-300 mb-2">Badge: PNP-2024-0123</p>
+            <h3 class="text-lg font-bold text-yellow-400"><?php echo $user['rank'] . ' ' . $user['first_name'] . ' ' . $user['last_name']; ?></h3>
+            <p class="text-xs text-gray-300 mb-2">Badge: <?php echo $user['badge_number']; ?></p>
             
-            <!-- User Info Grid -->
             <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
                 <div class="bg-[#0a3d62] p-2 rounded">
                     <p class="text-gray-400">Rank</p>
-                    <p class="font-semibold text-white">PO3</p>
+                    <p class="font-semibold text-white"><?php echo $user['rank']; ?></p>
                 </div>
                 <div class="bg-[#0a3d62] p-2 rounded">
                     <p class="text-gray-400">Station</p>
                     <p class="font-semibold text-white">MPS</p>
                 </div>
-                <div class="bg-[#0a3d62] p-2 rounded col-span-2">
-                    <p class="text-gray-400">Assignment</p>
-                    <p class="font-semibold text-white">Patrol Unit</p>
-                </div>
             </div>
             
-            <!-- Status Badge -->
             <div class="mt-3 flex justify-center">
                 <span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
                     <i class="fas fa-circle text-[8px] animate-pulse"></i> Active on Duty
@@ -169,26 +271,22 @@
             </div>
         </div>
 
-        <!-- ===== SIMPLE MENU - Only Dashboard and Logout ===== -->
+        <!-- Simple Menu -->
         <ul class="space-y-2">
-            <!-- Dashboard Link -->
             <li class="p-3 rounded-lg bg-[#0a3d62] border-l-4 border-yellow-400 hover:bg-[#1f6fb2] transition">
                 <a href="user_dashboard.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-tachometer-alt mr-3 w-5 text-yellow-400"></i> Dashboard
                 </a>
             </li>
             
-            <!-- Divider -->
             <li class="my-4 border-t border-[#1a4b6d]"></li>
             
-            <!-- Logout Button -->
             <li class="p-3 rounded-lg bg-red-600 hover:bg-red-700 transition cursor-pointer">
-                <a href="../index.php" class="text-white no-underline block text-sm md:text-base font-medium">
+                <a href="../logout.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-sign-out-alt mr-3 w-5"></i> Logout
                 </a>
             </li>
             
-            <!-- Version Info -->
             <li class="mt-6 text-center text-xs text-gray-400">
                 <p>PNP Manolo Fortich v2.0</p>
                 <p class="mt-1">© 2026 All Rights Reserved</p>
@@ -196,18 +294,31 @@
         </ul>
     </div>
 
-    <!-- ===== MAIN CONTENT ===== -->
+    <!-- Main Content -->
     <div class="flex-1 p-3 md:p-6 lg:p-8 bg-[#eef2f6] overflow-y-auto min-h-screen main-content-mobile">
         
-        <!-- Header - Responsive -->
+        <!-- Display Session Messages -->
+        <?php if (isset($_SESSION['success'])): ?>
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-lg">
+            <i class="fas fa-check-circle mr-2"></i> <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
+        </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['error'])): ?>
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-lg">
+            <i class="fas fa-exclamation-circle mr-2"></i> <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- Header -->
         <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm mb-4 md:mb-6 flex flex-col sm:flex-row gap-3 sm:gap-0 justify-between items-start sm:items-center">
             <div class="ml-10 md:ml-0">
                 <h2 class="text-xl md:text-2xl font-bold text-[#08324f]">User Dashboard</h2>
-                <p class="text-xs md:text-sm text-gray-600 mt-1">Welcome back, PO3 Juan Dela Cruz</p>
+                <p class="text-xs md:text-sm text-gray-600 mt-1">Welcome back, <?php echo $user['first_name']; ?></p>
             </div>
             <div class="flex flex-wrap gap-2 w-full sm:w-auto">
                 <div class="bg-green-100 text-green-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold flex items-center">
-                    <i class="fas fa-circle text-[6px] md:text-[8px] text-green-500 mr-1 md:mr-2"></i> GPS: Active
+                    <i class="fas fa-circle text-[6px] md:text-[8px] text-green-500 mr-1 md:mr-2"></i> GPS: Ready
                 </div>
                 <div class="bg-[#08324f] text-yellow-400 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold flex items-center">
                     <i class="fas fa-map-marker-alt mr-1 md:mr-2 text-xs"></i> On Duty
@@ -215,81 +326,82 @@
             </div>
         </div>
 
-        <!-- ===== MAP SECTION - User selects location ===== -->
+        <!-- Map Section -->
         <div class="bg-white p-3 md:p-5 rounded-lg shadow-md mb-4 md:mb-6">
             <h3 class="text-base md:text-lg font-semibold text-[#08324f] mb-3 md:mb-4 flex items-center">
                 <i class="fas fa-map-marked-alt mr-2 text-yellow-500 text-lg md:text-xl"></i> 
                 <span class="text-sm md:text-base">Select Your Location</span>
             </h3>
             
-            <!-- Barangay Selector and Map Controls -->
             <div class="flex flex-col lg:flex-row gap-3 md:gap-4 mb-3 md:mb-4">
-                <!-- Barangay Selection -->
                 <div class="w-full lg:w-1/2">
                     <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Select Barangay</label>
-                    <select id="barangaySelect" class="w-full p-2 md:p-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]" onchange="zoomToBarangay(this.value)">
+                    <select id="barangaySelect" class="w-full p-2 md:p-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]" onchange="zoomToBarangay(this)">
                         <option value="">-- Select Barangay --</option>
-                        <option value="Agusan Canyon">Agusan Canyon</option>
-                        <option value="Alae">Alae</option>
-                        <option value="Abyawan">Abyawan</option>
-                        <option value="Dahilayan">Dahilayan</option>
-                        <option value="Dalirig">Dalirig</option>
-                        <option value="Damilag">Damilag</option>
-                        <option value="Dicklum">Dicklum</option>
-                        <option value="Guilang-guilang">Guilang-guilang</option>
-                        <option value="Kalugmanan">Kalugmanan</option>
-                        <option value="Lindaban">Lindaban</option>
-                        <option value="Lingion">Lingion</option>
-                        <option value="Lunocan">Lunocan</option>
-                        <option value="Mambatangan">Mambatangan</option>
-                        <option value="Minsuro">Minsuro</option>
-                        <option value="Mantibugao">Mantibugao</option>
-                        <option value="Tankulan">Pob. Tankulan</option>
-                        <option value="Sankanan">Sankanan</option>
-                        <option value="Santiago">Santiago</option>
-                        <option value="San Miguel">San Miguel</option>
-                        <option value="Santo Niño">Santo Niño</option>
-                        <option value="Ticala">Ticala</option>
+                        <?php while ($barangay = $barangays->fetch_assoc()): ?>
+                        <option value="<?php echo $barangay['barangay_id']; ?>" 
+                                data-name="<?php echo $barangay['barangay_name']; ?>"
+                                data-lat="<?php echo $barangay['latitude']; ?>" 
+                                data-lng="<?php echo $barangay['longitude']; ?>">
+                            <?php echo $barangay['barangay_name']; ?>
+                        </option>
+                        <?php endwhile; ?>
                     </select>
                 </div>
 
-                <!-- Map Controls -->
                 <div class="w-full lg:w-1/2 flex flex-wrap gap-2 items-end">
-                    <button onclick="getUserLocation()" class="flex-1 bg-[#1f6fb2] text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-[#0a3d62] transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm">
+                    <button type="button" onclick="getUserLocation()" class="flex-1 bg-[#1f6fb2] text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-[#0a3d62] transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm">
                         <i class="fas fa-location-dot"></i> My Location
                     </button>
-                    <button onclick="resetMapView()" class="flex-1 bg-yellow-500 text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-yellow-600 transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm">
+                    <button type="button" onclick="resetMapView()" class="flex-1 bg-yellow-500 text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-yellow-600 transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm">
                         <i class="fas fa-globe"></i> Reset
                     </button>
                 </div>
             </div>
 
-            <!-- Map Container -->
             <div id="map" class="w-full h-[300px] sm:h-[350px] md:h-[400px] lg:h-[450px] rounded-lg border-2 border-gray-200"></div>
             
-            <!-- Location Info -->
             <div id="locationInfo" class="mt-3 p-2 md:p-3 bg-blue-50 rounded-lg hidden">
                 <p class="text-xs md:text-sm text-gray-700"><i class="fas fa-map-pin text-[#1f6fb2] mr-2"></i><span id="locationText"></span></p>
                 <p class="text-xs text-gray-500 mt-1" id="coordinatesText"></p>
             </div>
         </div>
 
-        <!-- ===== ACTIVITY FORM - User INPUTS data ===== -->
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500">
+                <p class="text-xs text-gray-500">My Patrols</p>
+                <p class="text-xl font-bold text-[#08324f]"><?php echo $stats['patrols']; ?></p>
+            </div>
+            <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-red-500">
+                <p class="text-xs text-gray-500">My Checkpoints</p>
+                <p class="text-xl font-bold text-[#08324f]"><?php echo $stats['checkpoints']; ?></p>
+            </div>
+            <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-green-500">
+                <p class="text-xs text-gray-500">My Oplans</p>
+                <p class="text-xl font-bold text-[#08324f]"><?php echo $stats['oplans']; ?></p>
+            </div>
+            <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-yellow-500">
+                <p class="text-xs text-gray-500">Pending</p>
+                <p class="text-xl font-bold text-[#08324f]"><?php echo $stats['pending']; ?></p>
+            </div>
+        </div>
+
+        <!-- Activity Form -->
         <div class="bg-white p-3 md:p-5 rounded-lg shadow-md">
             <h3 class="text-base md:text-lg font-semibold text-[#08324f] mb-3 md:mb-4">Report New Activity</h3>
             
-            <form id="activityForm" onsubmit="submitActivity(event)">
-                <!-- Selected Location (from map) -->
+            <form id="activityForm" action="submit_activity.php" method="POST" enctype="multipart/form-data">
                 <input type="hidden" id="selectedLat" name="latitude">
                 <input type="hidden" id="selectedLng" name="longitude">
-                <input type="hidden" id="selectedBarangay" name="barangay">
+                <input type="hidden" id="selectedBarangayId" name="barangay_id">
+                <input type="hidden" name="user_id" value="<?php echo $user_id; ?>">
+                <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="">
 
-                <!-- Form fields - User fills these out -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Activity Type -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Activity Type *</label>
-                        <select name="activity_type" required class="w-full p-2.5 text-sm border border-gray-300 rounded-lg" onchange="toggleActivityFields(this.value)">
+                        <select name="activity_type" id="activity_type" required class="w-full p-2.5 text-sm border border-gray-300 rounded-lg" onchange="toggleActivityFields(this.value)">
                             <option value="">Select Type</option>
                             <option value="foot_patrol">Foot Patrol</option>
                             <option value="mobile_patrol">Mobile Patrol</option>
@@ -300,36 +412,33 @@
                         </select>
                     </div>
 
-                    <!-- Specific Location (auto-filled from map) -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
                         <input type="text" id="specificLocation" name="specific_location" readonly 
                                class="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50" 
-                               placeholder="Click on map to set location">
+                               placeholder="Click on map to set location" required>
                     </div>
 
-                    <!-- Date - FIXED: Shows current Philippine date -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
-                        <input type="date" name="date" required value="<?php echo date('Y-m-d'); ?>" 
+                        <input type="date" name="activity_date" required value="<?php echo date('Y-m-d'); ?>" 
                                class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
                     </div>
 
-                    <!-- Time - FIXED: Shows current Philippine time -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Time *</label>
-                        <input type="time" name="time" required value="<?php echo date('H:i'); ?>" 
+                        <input type="time" name="activity_time" required value="<?php echo date('H:i'); ?>" 
                                class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
                     </div>
 
-                    <!-- Personnel (dynamic) -->
+                    <!-- Personnel Field (dynamic) -->
                     <div id="personnelField" class="hidden md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Number of Personnel *</label>
-                        <input type="number" name="personnel" min="1" value="1" required
+                        <input type="number" name="personnel_count" min="1" value="1"
                                class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
                     </div>
 
-                    <!-- Vehicle/Unit (for mobile/motor patrol) -->
+                    <!-- Vehicle Field (for mobile/motor patrol) -->
                     <div id="vehicleField" class="hidden md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle/Unit Number</label>
                         <input type="text" name="vehicle_number" placeholder="e.g., MCS-101" 
@@ -337,7 +446,7 @@
                     </div>
                 </div>
 
-                <!-- Checkpoint Specific Fields -->
+                <!-- Checkpoint Fields -->
                 <div id="checkpointFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
                     <h4 class="font-medium text-sm mb-3 text-[#08324f]">Checkpoint Details</h4>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -356,17 +465,25 @@
                     </div>
                 </div>
 
-                <!-- Oplan Specific Fields -->
+                <!-- Oplan Fields -->
                 <div id="oplanFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
                     <h4 class="font-medium text-sm mb-3 text-[#08324f]">Oplan Details</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
-                            <label class="block text-xs text-gray-600 mb-1">Number of Operations</label>
-                            <input type="number" name="oplan_ops" value="1" min="1" class="w-full p-2 text-sm border rounded">
+                            <label class="block text-xs text-gray-600 mb-1">Operations Count</label>
+                            <input type="number" name="operations_count" value="1" min="1" class="w-full p-2 text-sm border rounded">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Arrests Made</label>
                             <input type="number" name="oplan_arrests" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div id="bakalField" class="hidden">
+                            <label class="block text-xs text-gray-600 mb-1">Firearms Seized</label>
+                            <input type="number" name="firearms_seized" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div id="sitaField" class="hidden">
+                            <label class="block text-xs text-gray-600 mb-1">Contraband (kg)</label>
+                            <input type="number" step="0.01" name="contraband_kg" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                     </div>
                 </div>
@@ -374,33 +491,68 @@
                 <!-- Accomplishment Description -->
                 <div class="mt-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Accomplishment Description *</label>
-                    <textarea name="accomplishment" rows="4" required
+                    <textarea name="accomplishment_description" rows="4" required
                               class="w-full p-3 text-sm border border-gray-300 rounded-lg" 
-                              placeholder="Describe in detail what you accomplished during this activity. Be specific - include number of persons assisted, violations issued, items seized, arrests made, etc."></textarea>
-                    <p class="text-xs text-gray-500 mt-1">This will be used by admin to generate accomplishment reports</p>
+                              placeholder="Describe in detail what you accomplished during this activity..."></textarea>
                 </div>
 
                 <!-- Photo Upload -->
                 <div class="mt-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Upload Photo Evidence</label>
-                    <input type="file" name="photo" accept="image/*" 
-                           class="w-full p-2 border border-gray-300 rounded-lg">
-                    <p class="text-xs text-gray-500 mt-1">Max: 15MB. JPG, PNG only</p>
+                    <input type="file" name="photo" accept="image/*" class="w-full p-2 border border-gray-300 rounded-lg">
                 </div>
 
                 <!-- Submit Button -->
                 <div class="mt-6">
-                    <button type="submit" 
-                            class="w-full bg-[#1f6fb2] text-white py-3 rounded-lg hover:bg-[#0a3d62] transition font-semibold text-base">
+                    <button type="submit" class="w-full bg-[#1f6fb2] text-white py-3 rounded-lg hover:bg-[#0a3d62] transition font-semibold text-base">
                         <i class="fas fa-paper-plane mr-2"></i> SUBMIT ACTIVITY REPORT
                     </button>
                 </div>
             </form>
         </div>
+
+        <!-- Recent Activities -->
+        <div class="mt-6">
+            <h3 class="text-lg font-semibold text-[#08324f] mb-3">My Recent Reports</h3>
+            <div class="space-y-3">
+                <?php if (empty($recent)): ?>
+                <p class="text-gray-500 text-center py-4">No reports yet. Submit your first activity above.</p>
+                <?php else: ?>
+                <?php foreach ($recent as $activity): ?>
+                <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 
+                    <?php 
+                    echo $activity['type'] == 'patrol' ? 'border-blue-500' : 
+                        ($activity['type'] == 'checkpoint' ? 'border-red-500' : 'border-green-500'); 
+                    ?>">
+                    <div class="flex justify-between">
+                        <span class="font-medium">
+                            <?php 
+                            if ($activity['type'] == 'patrol') echo $activity['subtype'];
+                            elseif ($activity['type'] == 'checkpoint') echo 'Checkpoint Operation';
+                            else echo $activity['subtype'];
+                            ?>
+                        </span>
+                        <span class="text-xs 
+                            <?php 
+                            echo $activity['status'] == 'approved' ? 'text-green-600' : 
+                                ($activity['status'] == 'pending' ? 'text-yellow-600' : 'text-red-600'); 
+                            ?>">
+                            <?php echo ucfirst($activity['status']); ?>
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600"><?php echo htmlspecialchars($activity['specific_location']); ?></p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <?php echo date('M d, Y', strtotime($activity['activity_date'])) . ' at ' . date('h:i A', strtotime($activity['activity_time'])); ?>
+                    </p>
+                </div>
+                <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 
     <script>
-        // ===== MOBILE MENU FUNCTIONS =====
+        // Mobile Menu Functions
         const sidebar = document.getElementById('sidebar');
         const menuBtn = document.getElementById('mobileMenuBtn');
         const closeBtn = document.getElementById('closeSidebar');
@@ -423,68 +575,37 @@
         if (overlay) overlay.addEventListener('click', closeMobileMenu);
         window.addEventListener('resize', function() { if (window.innerWidth >= 768) closeMobileMenu(); });
 
-        // ===== MAP INITIALIZATION =====
+        // Map Variables
         let map;
         let marker;
         let userMarker;
-        let currentLat = 8.3782;
-        let currentLng = 124.8658;
+        let currentLat = 8.366379;
+        let currentLng = 124.864432;
 
-        // EXACT coordinates for each barangay in Manolo Fortich
+        // Barangay coordinates from PHP
         const barangayCoords = {
-            "Agusan Canyon": [8.333756, 124.815385],
-            "Abyawan": [8.425780, 124.937224],
-            "Alae": [8.422394, 124.813030],
-            "Dahilayan": [8.219238, 124.852093],
-            "Dalirig": [8.376396, 124.901176],
-            "Damilag": [8.353324, 124.813294],
-            "Dicklum": [8.372235, 124.849156],
-            "Guilang-guilang": [8.457363, 125.032696],
-            "Kalugmanan": [8.276591, 124.859303],
-            "Lindaban": [8.290475, 124.848330],
-            "Lingion": [8.403194, 124.888303],
-            "Lunocan": [8.431587, 124.840309],
-            "Maluko": [8.375173, 124.955589],
-            "Mambatangan": [8.467822, 124.790619],
-            "Minsuro": [8.510253, 124.831259],
-            "Mantibugao": [8.458500, 124.824084],
-            "Sankanan": [8.315932, 124.857913],
-            "Santiago": [8.436308, 124.995782],
-            "San Miguel": [8.389048, 124.835936],
-            "Santo Niño": [8.428420, 124.864042],
-            "Tankulan": [8.366379, 124.864432],
-            "Ticala": [8.340187, 124.891891]
+            <?php
+            $first = true;
+            foreach ($barangay_data as $b): 
+                if (!$first) echo ",";
+                $first = false;
+            ?>
+            "<?php echo $b['barangay_id']; ?>": {
+                name: "<?php echo addslashes($b['barangay_name']); ?>",
+                lat: <?php echo $b['latitude']; ?>,
+                lng: <?php echo $b['longitude']; ?>
+            }
+            <?php endforeach; ?>
         };
 
+        // Initialize Map
         document.addEventListener('DOMContentLoaded', function() {
             initMap();
-            // FIXED: Set correct Philippine time
-            setPhilippineTime();
         });
 
-        // FIXED: Function to set Philippine time (UTC+8)
-        function setPhilippineTime() {
-            const now = new Date();
-            // Philippine time is UTC+8
-            const phTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-            
-            // Format date as YYYY-MM-DD
-            const year = phTime.getUTCFullYear();
-            const month = String(phTime.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(phTime.getUTCDate()).padStart(2, '0');
-            const phDate = `${year}-${month}-${day}`;
-            
-            // Format time as HH:MM (24-hour)
-            const hours = String(phTime.getUTCHours()).padStart(2, '0');
-            const minutes = String(phTime.getUTCMinutes()).padStart(2, '0');
-            const phTimeStr = `${hours}:${minutes}`;
-            
-            // Set the input values
-            document.querySelector('input[name="date"]').value = phDate;
-            document.querySelector('input[name="time"]').value = phTimeStr;
-        }
-
         function initMap() {
+            if (!document.getElementById('map')) return;
+            
             let zoomLevel = window.innerWidth < 540 ? 11 : 12;
             map = L.map('map').setView([currentLat, currentLng], zoomLevel);
             
@@ -530,110 +651,71 @@
                 .then(data => {
                     let locationName = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                     document.getElementById('specificLocation').value = locationName.substring(0, 100);
-                    
-                    if (data.address) {
-                        let barangay = data.address.village || data.address.town || data.address.city_district || '';
-                        if (barangay) {
-                            document.getElementById('selectedBarangay').value = barangay;
-                            let select = document.getElementById('barangaySelect');
-                            for (let i = 0; i < select.options.length; i++) {
-                                if (select.options[i].text.toLowerCase().includes(barangay.toLowerCase())) {
-                                    select.value = select.options[i].value;
-                                    break;
-                                }
-                            }
-                        }
-                    }
                 })
                 .catch(() => {
                     document.getElementById('specificLocation').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                 });
         }
 
-        function zoomToBarangay(barangay) {
-            if (barangay && barangayCoords[barangay]) {
-                const coords = barangayCoords[barangay];
-                map.setView(coords, 12);
-                placeMarker(coords[0], coords[1]);
-                document.getElementById('selectedBarangay').value = barangay;
+        function zoomToBarangay(select) {
+            const barangayId = select.value;
+            if (barangayId && barangayCoords[barangayId]) {
+                const coords = barangayCoords[barangayId];
+                map.setView([coords.lat, coords.lng], 16);
+                placeMarker(coords.lat, coords.lng);
+                document.getElementById('selectedBarangayId').value = barangayId;
+                document.getElementById('specificLocation').value = coords.name + ', Manolo Fortich';
             }
         }
 
-        // FIXED: Improved getUserLocation function with better accuracy
         function getUserLocation() {
             if (navigator.geolocation) {
-                // Show loading message
                 document.getElementById('locationInfo').classList.remove('hidden');
                 document.getElementById('locationText').innerHTML = 'Getting your exact location...';
                 
-                // Options for high accuracy
-                const options = {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                };
-
                 navigator.geolocation.getCurrentPosition(
-                    // Success callback
                     function(position) {
                         const lat = position.coords.latitude;
                         const lng = position.coords.longitude;
                         const accuracy = position.coords.accuracy;
                         
-                        // Center map on user location with high zoom
                         map.setView([lat, lng], 18);
                         
-                        // Remove existing user marker if any
-                        if (userMarker) {
-                            map.removeLayer(userMarker);
-                        }
+                        if (userMarker) map.removeLayer(userMarker);
                         
-                        // Add user marker with pulsing effect
                         userMarker = L.marker([lat, lng], {
                             icon: L.divIcon({
                                 className: 'user-location-marker',
                                 html: '<div class="user-location-marker"></div>',
                                 iconSize: [20, 20]
                             })
-                        }).addTo(map).bindPopup(`<b>Your Current Location</b><br>Accuracy: ${accuracy.toFixed(1)} meters`).openPopup();
+                        }).addTo(map).bindPopup(`<b>Your Location</b><br>Accuracy: ${accuracy.toFixed(1)}m`).openPopup();
                         
-                        // Place activity marker at same location
                         placeMarker(lat, lng);
                         reverseGeocode(lat, lng);
-                        
-                        // Show accuracy info
+                        document.getElementById('gps_accuracy').value = accuracy;
                         document.getElementById('locationText').innerHTML = `Your location (accuracy: ${accuracy.toFixed(1)}m)`;
-                        
-                        alert(`✓ Location detected!\nAccuracy: ${accuracy.toFixed(1)} meters`);
                     },
-                    // Error callback
                     function(error) {
-                        let errorMsg = 'Location error: ';
+                        let msg = 'Location error: ';
                         switch(error.code) {
-                            case error.PERMISSION_DENIED:
-                                errorMsg += 'Please allow location access in your browser.';
-                                break;
-                            case error.POSITION_UNAVAILABLE:
-                                errorMsg += 'Location information unavailable.';
-                                break;
-                            case error.TIMEOUT:
-                                errorMsg += 'Location request timed out.';
-                                break;
-                            default:
-                                errorMsg += 'Unknown error occurred.';
+                            case error.PERMISSION_DENIED: msg += 'Please allow location access.'; break;
+                            case error.POSITION_UNAVAILABLE: msg += 'Location unavailable.'; break;
+                            case error.TIMEOUT: msg += 'Request timed out.'; break;
+                            default: msg += 'Unknown error.';
                         }
-                        alert(errorMsg);
+                        alert(msg);
                         document.getElementById('locationInfo').classList.add('hidden');
                     },
-                    options
+                    { enableHighAccuracy: true, timeout: 10000 }
                 );
             } else {
-                alert('Geolocation is not supported by your browser');
+                alert('Geolocation not supported');
             }
         }
 
         function resetMapView() {
-            map.setView([8.3782, 124.8658], 12);
+            map.setView([8.366379, 124.864432], 12);
             if (marker) map.removeLayer(marker);
             if (userMarker) map.removeLayer(userMarker);
             marker = null;
@@ -642,85 +724,41 @@
             document.getElementById('locationInfo').classList.add('hidden');
             document.getElementById('selectedLat').value = '';
             document.getElementById('selectedLng').value = '';
-            document.getElementById('selectedBarangay').value = '';
+            document.getElementById('selectedBarangayId').value = '';
             document.getElementById('barangaySelect').value = '';
         }
 
-        // Toggle activity fields
         function toggleActivityFields(activityType) {
             document.getElementById('personnelField').classList.add('hidden');
             document.getElementById('vehicleField').classList.add('hidden');
             document.getElementById('checkpointFields').classList.add('hidden');
             document.getElementById('oplanFields').classList.add('hidden');
+            document.getElementById('bakalField').classList.add('hidden');
+            document.getElementById('sitaField').classList.add('hidden');
 
-            if (activityType.includes('patrol')) {
+            if (activityType.includes('patrol') || activityType.includes('checkpoint') || activityType.includes('oplan')) {
                 document.getElementById('personnelField').classList.remove('hidden');
             }
             
             if (activityType === 'mobile_patrol' || activityType === 'motor_patrol') {
                 document.getElementById('vehicleField').classList.remove('hidden');
-                document.getElementById('personnelField').classList.remove('hidden');
             }
             
             if (activityType === 'checkpoint') {
                 document.getElementById('checkpointFields').classList.remove('hidden');
-                document.getElementById('personnelField').classList.remove('hidden');
             }
             
-            if (activityType === 'oplan_bakal' || activityType === 'oplan_sita') {
+            if (activityType === 'oplan_bakal') {
                 document.getElementById('oplanFields').classList.remove('hidden');
-                document.getElementById('personnelField').classList.remove('hidden');
+                document.getElementById('bakalField').classList.remove('hidden');
+            }
+            
+            if (activityType === 'oplan_sita') {
+                document.getElementById('oplanFields').classList.remove('hidden');
+                document.getElementById('sitaField').classList.remove('hidden');
             }
         }
 
-        // Submit activity - this sends data to the server/admin
-        function submitActivity(event) {
-            event.preventDefault();
-            
-            if (!document.getElementById('selectedLat').value) {
-                alert('Please select a location on the map first.');
-                return;
-            }
-            
-            // Collect all form data
-            const formData = {
-                location: document.getElementById('specificLocation').value,
-                coordinates: `${document.getElementById('selectedLat').value}, ${document.getElementById('selectedLng').value}`,
-                barangay: document.getElementById('selectedBarangay').value,
-                activity_type: document.querySelector('select[name="activity_type"]').value,
-                date: document.querySelector('input[name="date"]').value,
-                time: document.querySelector('input[name="time"]').value,
-                personnel: document.querySelector('input[name="personnel"]')?.value || '1',
-                accomplishment: document.querySelector('textarea[name="accomplishment"]').value
-            };
-            
-            // Check if checkpoint has additional data
-            if (formData.activity_type === 'checkpoint') {
-                formData.border_control_ops = document.querySelector('input[name="border_control_ops"]')?.value || '0';
-                formData.mobile_checkpoint_ops = document.querySelector('input[name="mobile_checkpoint_ops"]')?.value || '0';
-                formData.tct_ovr = document.querySelector('input[name="tct_ovr"]')?.value || '0';
-            }
-            
-            // Check if oplan has additional data
-            if (formData.activity_type === 'oplan_bakal' || formData.activity_type === 'oplan_sita') {
-                formData.oplan_ops = document.querySelector('input[name="oplan_ops"]')?.value || '1';
-                formData.oplan_arrests = document.querySelector('input[name="oplan_arrests"]')?.value || '0';
-            }
-            
-            // Log to console for debugging
-            console.log('Submitting to admin:', formData);
-            
-            alert('✓ Activity Reported Successfully!\n\nYour accomplishment has been recorded and will appear in admin reports.');
-            
-            // Reset form
-            event.target.reset();
-            resetMapView();
-            
-            // Reset date/time to current Philippine time
-            setPhilippineTime();
-        }
-
-        // Dropdown toggle
         function toggleDropdown(element) {
             const parent = element.closest('.dropdown');
             parent.classList.toggle('active');
@@ -730,3 +768,4 @@
     </script>
 </body>
 </html>
+<?php $conn->close(); ?>

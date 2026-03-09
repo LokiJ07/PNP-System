@@ -1,3 +1,161 @@
+<?php
+// =====================================================
+// FILE: admin/admin_dashboard.php
+// PURPOSE: Admin dashboard with real data from database
+// =====================================================
+
+require_once '../config/db_connect.php';
+requireAdmin(); // Function to ensure only admins can access
+
+// Get statistics from database
+$stats = [];
+
+// Total users
+$result = $conn->query("SELECT COUNT(*) as total FROM users WHERE role = 'user'");
+$stats['total_users'] = $result->fetch_assoc()['total'];
+
+// Active users
+$result = $conn->query("SELECT COUNT(*) as total FROM users WHERE role = 'user' AND account_status = 'active'");
+$stats['active_users'] = $result->fetch_assoc()['total'];
+
+// Total patrols
+$result = $conn->query("SELECT COUNT(*) as total FROM patrol_activities");
+$stats['total_patrols'] = $result->fetch_assoc()['total'];
+
+// Total checkpoints
+$result = $conn->query("SELECT COUNT(*) as total FROM checkpoint_activities");
+$stats['total_checkpoints'] = $result->fetch_assoc()['total'];
+
+// Total oplans
+$result = $conn->query("SELECT COUNT(*) as total FROM oplan_activities");
+$stats['total_oplans'] = $result->fetch_assoc()['total'];
+
+// Foot patrols
+$result = $conn->query("SELECT COUNT(*) as total FROM patrol_activities WHERE patrol_type = 'Foot Patrol'");
+$stats['foot_patrols'] = $result->fetch_assoc()['total'];
+
+// Mobile patrols
+$result = $conn->query("SELECT COUNT(*) as total FROM patrol_activities WHERE patrol_type = 'Mobile Patrol'");
+$stats['mobile_patrols'] = $result->fetch_assoc()['total'];
+
+// Motor patrols
+$result = $conn->query("SELECT COUNT(*) as total FROM patrol_activities WHERE patrol_type = 'Motorcycle Patrol'");
+$stats['motor_patrols'] = $result->fetch_assoc()['total'];
+
+// Border control ops
+$result = $conn->query("SELECT SUM(border_control_ops) as total FROM checkpoint_activities");
+$stats['border_ops'] = $result->fetch_assoc()['total'] ?? 0;
+
+// Mobile checkpoint ops
+$result = $conn->query("SELECT SUM(mobile_checkpoint_ops) as total FROM checkpoint_activities");
+$stats['mobile_checkpoint_ops'] = $result->fetch_assoc()['total'] ?? 0;
+
+// TCT/OVR accomplishments
+$result = $conn->query("SELECT SUM(tct_ovr_accomplishment) as total FROM checkpoint_activities");
+$stats['tct_ovr'] = $result->fetch_assoc()['total'] ?? 0;
+
+// Arrests from checkpoints
+$result = $conn->query("SELECT SUM(arrested_accomplishment) as total FROM checkpoint_activities");
+$stats['checkpoint_arrests'] = $result->fetch_assoc()['total'] ?? 0;
+
+// Oplan Bakal
+$result = $conn->query("SELECT COUNT(*) as total FROM oplan_activities WHERE oplan_type = 'Oplan Bakal'");
+$stats['oplan_bakal'] = $result->fetch_assoc()['total'];
+
+// Oplan Sita
+$result = $conn->query("SELECT COUNT(*) as total FROM oplan_activities WHERE oplan_type = 'Oplan Sita'");
+$stats['oplan_sita'] = $result->fetch_assoc()['total'];
+
+// Firearms seized
+$result = $conn->query("SELECT SUM(firearms_seized) as total FROM oplan_activities WHERE oplan_type = 'Oplan Bakal'");
+$stats['firearms'] = $result->fetch_assoc()['total'] ?? 0;
+
+// Contraband seized
+$result = $conn->query("SELECT SUM(contraband_kg) as total FROM oplan_activities WHERE oplan_type = 'Oplan Sita'");
+$stats['contraband'] = $result->fetch_assoc()['total'] ?? 0;
+
+// Oplan arrests
+$result = $conn->query("SELECT SUM(arrests_made) as total FROM oplan_activities");
+$stats['oplan_arrests'] = $result->fetch_assoc()['total'] ?? 0;
+
+// Recent activities for display
+$recent = [];
+
+// Get recent patrols
+$patrols = $conn->query("
+    SELECT p.patrol_id as id, 'patrol' as type, p.patrol_type as subtype, 
+           CONCAT(u.rank, ' ', u.first_name, ' ', u.last_name) as officer_name,
+           b.barangay_name, p.specific_location, p.patrol_date, p.patrol_time, p.status,
+           p.submitted_at
+    FROM patrol_activities p
+    JOIN users u ON p.user_id = u.user_id
+    JOIN barangays b ON p.barangay_id = b.barangay_id
+    ORDER BY p.submitted_at DESC
+    LIMIT 5
+");
+
+while ($row = $patrols->fetch_assoc()) {
+    $recent[] = $row;
+}
+
+// Get recent checkpoints
+$checkpoints = $conn->query("
+    SELECT c.checkpoint_id as id, 'checkpoint' as type, 'Checkpoint' as subtype,
+           CONCAT(u.rank, ' ', u.first_name, ' ', u.last_name) as officer_name,
+           b.barangay_name, c.specific_location, c.checkpoint_date, c.checkpoint_time, c.status,
+           c.submitted_at
+    FROM checkpoint_activities c
+    JOIN users u ON c.user_id = u.user_id
+    JOIN barangays b ON c.barangay_id = b.barangay_id
+    ORDER BY c.submitted_at DESC
+    LIMIT 5
+");
+
+while ($row = $checkpoints->fetch_assoc()) {
+    $recent[] = $row;
+}
+
+// Get recent oplans
+$oplans = $conn->query("
+    SELECT o.oplan_id as id, 'oplan' as type, o.oplan_type as subtype,
+           CONCAT(u.rank, ' ', u.first_name, ' ', u.last_name) as officer_name,
+           b.barangay_name, o.specific_location, o.oplan_date, o.oplan_time, o.status,
+           o.submitted_at
+    FROM oplan_activities o
+    JOIN users u ON o.user_id = u.user_id
+    JOIN barangays b ON o.barangay_id = b.barangay_id
+    ORDER BY o.submitted_at DESC
+    LIMIT 5
+");
+
+while ($row = $oplans->fetch_assoc()) {
+    $recent[] = $row;
+}
+
+// Sort recent activities by date (most recent first)
+usort($recent, function($a, $b) {
+    return strtotime($b['submitted_at']) - strtotime($a['submitted_at']);
+});
+
+// Take only top 8
+$recent = array_slice($recent, 0, 8);
+
+// Get top performing officers
+$top_officers = $conn->query("
+    SELECT u.user_id, u.rank, u.first_name, u.last_name,
+           (SELECT COUNT(*) FROM patrol_activities WHERE user_id = u.user_id) as patrol_count,
+           (SELECT COUNT(*) FROM checkpoint_activities WHERE user_id = u.user_id) as checkpoint_count,
+           (SELECT COUNT(*) FROM oplan_activities WHERE user_id = u.user_id) as oplan_count,
+           ((SELECT COUNT(*) FROM patrol_activities WHERE user_id = u.user_id) +
+            (SELECT COUNT(*) FROM checkpoint_activities WHERE user_id = u.user_id) +
+            (SELECT COUNT(*) FROM oplan_activities WHERE user_id = u.user_id)) as total_activities
+    FROM users u
+    WHERE u.role = 'user'
+    ORDER BY total_activities DESC
+    LIMIT 3
+");
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,6 +208,12 @@
             <h2 class="text-xl font-semibold">PNP Admin</h2>
         </div>
 
+        <!-- Admin Info -->
+        <div class="bg-[#1e4a6a] p-3 rounded-lg mb-4 text-center">
+            <p class="text-sm text-yellow-400 font-medium"><?php echo $_SESSION['full_name']; ?></p>
+            <p class="text-xs text-gray-300 mt-1"><?php echo $_SESSION['email']; ?></p>
+        </div>
+
         <ul class="space-y-1">
             <li class="p-3 rounded bg-[#1e4a6a] border-l-4 border-[#ffc107]">
                 <a href="admin_dashboard.php" class="text-white no-underline block">
@@ -93,13 +257,13 @@
             </li>
             
             <li class="p-3 rounded hover:bg-[#1e4a6a] cursor-pointer">
-                <a href="all_reports.php" class="text-white no-underline block">
+                <a href="accomplishment_report.php" class="text-white no-underline block">
                     <i class="fas fa-file-alt mr-3"></i> Accomplishment Report
                 </a>
             </li>
 
             <li class="p-3 rounded hover:bg-[#1e4a6a] cursor-pointer mt-5 pt-4 border-t border-[#1e4a6a]">
-                <a href="../index.php" class="text-white no-underline block">
+                <a href="../logout.php" class="text-white no-underline block">
                     <i class="fas fa-sign-out-alt mr-3"></i> Logout
                 </a>
             </li>
@@ -112,7 +276,7 @@
         <!-- Header with PNP Gold Accent -->
         <div class="bg-white p-6 rounded-lg shadow-md mb-6 border-l-4 border-[#ffc107]">
             <h2 class="text-2xl font-bold text-[#0a2b3c]">Dashboard Overview</h2>
-            <p class="text-gray-600 mt-1">Welcome back. System monitoring panel.</p>
+            <p class="text-gray-600 mt-1">Welcome back, <?php echo $_SESSION['full_name']; ?>. System monitoring panel.</p>
         </div>
 
         <!-- QUICK STATS ROW - Summary Cards -->
@@ -121,39 +285,39 @@
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="text-xs text-gray-500 uppercase tracking-wider">Total Personnel</p>
-                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1">24</p>
+                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1"><?php echo $stats['total_users']; ?></p>
                     </div>
                     <div class="w-12 h-12 bg-[#0a2b3c] bg-opacity-10 rounded-full flex items-center justify-center">
                         <i class="fas fa-users text-[#0a2b3c] text-xl"></i>
                     </div>
                 </div>
-                <p class="text-xs text-green-600 mt-2"><i class="fas fa-arrow-up mr-1"></i> 3 new this month</p>
+                <p class="text-xs text-green-600 mt-2"><i class="fas fa-arrow-up mr-1"></i> <?php echo $stats['active_users']; ?> active</p>
             </div>
             
             <div class="bg-white p-5 rounded-lg shadow-md border-l-4 border-[#0a2b3c]">
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="text-xs text-gray-500 uppercase tracking-wider">Active Officers</p>
-                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1">18</p>
+                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1"><?php echo $stats['active_users']; ?></p>
                     </div>
                     <div class="w-12 h-12 bg-[#0a2b3c] bg-opacity-10 rounded-full flex items-center justify-center">
                         <i class="fas fa-user-check text-[#0a2b3c] text-xl"></i>
                     </div>
                 </div>
-                <p class="text-xs text-green-600 mt-2"><i class="fas fa-chart-line mr-1"></i> 75% participation</p>
+                <p class="text-xs text-green-600 mt-2"><i class="fas fa-chart-line mr-1"></i> <?php echo $stats['active_users'] > 0 ? round(($stats['active_users']/$stats['total_users'])*100) : 0; ?>% participation</p>
             </div>
             
             <div class="bg-white p-5 rounded-lg shadow-md border-l-4 border-[#c41e3a]">
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="text-xs text-gray-500 uppercase tracking-wider">Total Operations</p>
-                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1">585</p>
+                        <p class="text-3xl font-bold text-[#0a2b3c] mt-1"><?php echo $stats['total_patrols'] + $stats['total_checkpoints'] + $stats['total_oplans']; ?></p>
                     </div>
                     <div class="w-12 h-12 bg-[#c41e3a] bg-opacity-10 rounded-full flex items-center justify-center">
                         <i class="fas fa-calendar-check text-[#c41e3a] text-xl"></i>
                     </div>
                 </div>
-                <p class="text-xs text-green-600 mt-2"><i class="fas fa-chart-line mr-1"></i> +12% vs last month</p>
+                <p class="text-xs text-green-600 mt-2"><i class="fas fa-chart-line mr-1"></i> All-time total</p>
             </div>
             
             <div class="bg-white p-5 rounded-lg shadow-md border-l-4 border-[#ffc107]">
@@ -180,42 +344,30 @@
                 <div class="stat-card gradient-patrol p-5 rounded-lg shadow-lg text-white">
                     <div class="flex items-center justify-between mb-3">
                         <i class="fas fa-walking text-3xl opacity-80"></i>
-                        <span class="text-xs bg-white/20 px-3 py-1 rounded-full text-[#ffc107]">Daily: 24</span>
+                        <span class="text-xs bg-white/20 px-3 py-1 rounded-full text-[#ffc107]">Total: <?php echo $stats['foot_patrols']; ?></span>
                     </div>
-                    <p class="text-3xl font-bold">156</p>
+                    <p class="text-3xl font-bold"><?php echo $stats['foot_patrols']; ?></p>
                     <p class="text-sm opacity-90">Total Foot Patrols</p>
-                    <div class="mt-4 pt-3 border-t border-white/20 flex justify-between text-xs">
-                        <span><i class="fas fa-arrow-up text-[#ffc107] mr-1"></i> +3 today</span>
-                        <span>12 assists</span>
-                    </div>
                 </div>
 
                 <!-- Mobile Patrol Card -->
                 <div class="stat-card gradient-patrol p-5 rounded-lg shadow-lg text-white">
                     <div class="flex items-center justify-between mb-3">
                         <i class="fas fa-car text-3xl opacity-80"></i>
-                        <span class="text-xs bg-white/20 px-3 py-1 rounded-full text-[#ffc107]">Daily: 24</span>
+                        <span class="text-xs bg-white/20 px-3 py-1 rounded-full text-[#ffc107]">Total: <?php echo $stats['mobile_patrols']; ?></span>
                     </div>
-                    <p class="text-3xl font-bold">142</p>
+                    <p class="text-3xl font-bold"><?php echo $stats['mobile_patrols']; ?></p>
                     <p class="text-sm opacity-90">Total Mobile Patrols</p>
-                    <div class="mt-4 pt-3 border-t border-white/20 flex justify-between text-xs">
-                        <span><i class="fas fa-arrow-up text-[#ffc107] mr-1"></i> +5 today</span>
-                        <span>32 citations</span>
-                    </div>
                 </div>
 
                 <!-- Motorcycle Patrol Card -->
                 <div class="stat-card gradient-patrol p-5 rounded-lg shadow-lg text-white">
                     <div class="flex items-center justify-between mb-3">
                         <i class="fas fa-motorcycle text-3xl opacity-80"></i>
-                        <span class="text-xs bg-white/20 px-3 py-1 rounded-full text-[#ffc107]">Daily: 24</span>
+                        <span class="text-xs bg-white/20 px-3 py-1 rounded-full text-[#ffc107]">Total: <?php echo $stats['motor_patrols']; ?></span>
                     </div>
-                    <p class="text-3xl font-bold">134</p>
+                    <p class="text-3xl font-bold"><?php echo $stats['motor_patrols']; ?></p>
                     <p class="text-sm opacity-90">Total Motor Patrols</p>
-                    <div class="mt-4 pt-3 border-t border-white/20 flex justify-between text-xs">
-                        <span><i class="fas fa-arrow-up text-[#ffc107] mr-1"></i> +2 today</span>
-                        <span>28 citations</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -231,49 +383,33 @@
                     <!-- Total Checkpoints -->
                     <div class="stat-card gradient-checkpoint p-5 rounded-lg shadow-lg text-white">
                         <i class="fas fa-map-pin text-3xl opacity-80 mb-3 block"></i>
-                        <p class="text-3xl font-bold">89</p>
+                        <p class="text-3xl font-bold"><?php echo $stats['total_checkpoints']; ?></p>
                         <p class="text-sm opacity-90">Total Checkpoints</p>
-                        <div class="mt-3 flex justify-between text-xs">
-                            <span class="bg-white/20 px-2 py-1 rounded">This month</span>
-                        </div>
                     </div>
                     <!-- Border Control -->
                     <div class="stat-card gradient-checkpoint p-5 rounded-lg shadow-lg text-white">
                         <i class="fas fa-border-all text-3xl opacity-80 mb-3 block"></i>
-                        <p class="text-3xl font-bold">45</p>
-                        <p class="text-sm opacity-90">Border Control</p>
-                        <div class="mt-3 flex justify-between text-xs">
-                            <span class="bg-white/20 px-2 py-1 rounded">156 personnel</span>
-                        </div>
+                        <p class="text-3xl font-bold"><?php echo $stats['border_ops']; ?></p>
+                        <p class="text-sm opacity-90">Border Control Ops</p>
                     </div>
                     <!-- Mobile Checkpoint -->
                     <div class="stat-card gradient-checkpoint p-5 rounded-lg shadow-lg text-white">
                         <i class="fas fa-truck text-3xl opacity-80 mb-3 block"></i>
-                        <p class="text-3xl font-bold">32</p>
+                        <p class="text-3xl font-bold"><?php echo $stats['mobile_checkpoint_ops']; ?></p>
                         <p class="text-sm opacity-90">Mobile Checkpoint</p>
-                        <div class="mt-3 flex justify-between text-xs">
-                            <span class="bg-white/20 px-2 py-1 rounded">98 personnel</span>
-                        </div>
                     </div>
-                    <!-- Overlapping -->
+                    <!-- TCT/OVR -->
                     <div class="stat-card gradient-checkpoint p-5 rounded-lg shadow-lg text-white">
-                        <i class="fas fa-sync-alt text-3xl opacity-80 mb-3 block"></i>
-                        <p class="text-3xl font-bold">28</p>
-                        <p class="text-sm opacity-90">Overlapping Ops</p>
-                        <div class="mt-3 flex justify-between text-xs">
-                            <span class="bg-white/20 px-2 py-1 rounded">This week</span>
-                        </div>
+                        <i class="fas fa-file-alt text-3xl opacity-80 mb-3 block"></i>
+                        <p class="text-3xl font-bold"><?php echo $stats['tct_ovr']; ?></p>
+                        <p class="text-sm opacity-90">TCT/OVR Accomps</p>
                     </div>
                 </div>
                 <!-- Checkpoint Accomplishments Summary -->
                 <div class="grid grid-cols-2 gap-4 mt-4">
                     <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-[#c41e3a]">
-                        <p class="text-xs text-gray-500">TCT/OVR</p>
-                        <p class="text-xl font-bold text-[#0a2b3c]">28</p>
-                    </div>
-                    <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-[#c41e3a]">
-                        <p class="text-xs text-gray-500">Arrests</p>
-                        <p class="text-xl font-bold text-[#0a2b3c]">15</p>
+                        <p class="text-xs text-gray-500">Checkpoint Arrests</p>
+                        <p class="text-xl font-bold text-[#0a2b3c]"><?php echo $stats['checkpoint_arrests']; ?></p>
                     </div>
                 </div>
             </div>
@@ -287,104 +423,94 @@
                     <!-- Total Oplan -->
                     <div class="stat-card gradient-patrol p-5 rounded-lg shadow-lg text-white">
                         <i class="fas fa-shield-alt text-3xl opacity-80 mb-3 block"></i>
-                        <p class="text-3xl font-bold">48</p>
+                        <p class="text-3xl font-bold"><?php echo $stats['total_oplans']; ?></p>
                         <p class="text-sm opacity-90">Total Operations</p>
                     </div>
                     <!-- Oplan Bakal -->
                     <div class="stat-card gradient-patrol p-5 rounded-lg shadow-lg text-white">
                         <i class="fas fa-gun text-3xl opacity-80 mb-3 block"></i>
-                        <p class="text-3xl font-bold">20</p>
+                        <p class="text-3xl font-bold"><?php echo $stats['oplan_bakal']; ?></p>
                         <p class="text-sm opacity-90">Oplan Bakal</p>
                     </div>
                     <!-- Oplan Sita -->
                     <div class="stat-card gradient-patrol p-5 rounded-lg shadow-lg text-white">
                         <i class="fas fa-magnifying-glass text-3xl opacity-80 mb-3 block"></i>
-                        <p class="text-3xl font-bold">28</p>
+                        <p class="text-3xl font-bold"><?php echo $stats['oplan_sita']; ?></p>
                         <p class="text-sm opacity-90">Oplan Sita</p>
                     </div>
-                    <!-- Personnel -->
+                    <!-- Oplan Arrests -->
                     <div class="stat-card gradient-patrol p-5 rounded-lg shadow-lg text-white">
                         <i class="fas fa-users text-3xl opacity-80 mb-3 block"></i>
-                        <p class="text-3xl font-bold">112</p>
-                        <p class="text-sm opacity-90">Total Personnel</p>
+                        <p class="text-3xl font-bold"><?php echo $stats['oplan_arrests']; ?></p>
+                        <p class="text-sm opacity-90">Total Arrests</p>
                     </div>
                 </div>
                 <!-- Oplan Accomplishments Summary -->
                 <div class="grid grid-cols-2 gap-4 mt-4">
                     <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-[#0a2b3c]">
                         <p class="text-xs text-gray-500">Bakal Firearms</p>
-                        <p class="text-xl font-bold text-[#0a2b3c]">8</p>
-                    </div>
-                    <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-[#0a2b3c]">
-                        <p class="text-xs text-gray-500">Bakal Arrests</p>
-                        <p class="text-xl font-bold text-[#0a2b3c]">12</p>
+                        <p class="text-xl font-bold text-[#0a2b3c]"><?php echo $stats['firearms']; ?></p>
                     </div>
                     <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-[#ffc107]">
                         <p class="text-xs text-gray-500">Sita Contraband</p>
-                        <p class="text-xl font-bold text-[#0a2b3c]">15 kg</p>
-                    </div>
-                    <div class="bg-white p-3 rounded-lg shadow-sm border-l-2 border-[#ffc107]">
-                        <p class="text-xs text-gray-500">Sita Arrests</p>
-                        <p class="text-xl font-bold text-[#0a2b3c]">23</p>
+                        <p class="text-xl font-bold text-[#0a2b3c]"><?php echo $stats['contraband']; ?> kg</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- TOP PERFORMERS - Simple Cards -->
+        <!-- TOP PERFORMERS - From Database -->
         <div class="mb-6">
             <h3 class="text-lg font-semibold text-[#0a2b3c] mb-4 flex items-center gap-2">
                 <i class="fas fa-crown text-[#ffc107]"></i> Top Performing Officers
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Officer 1 -->
+                <?php while ($officer = $top_officers->fetch_assoc()): ?>
                 <div class="bg-white p-4 rounded-lg shadow-md flex items-center gap-3">
-                    <div class="w-12 h-12 bg-[#0a2b3c] rounded-full flex items-center justify-center text-[#ffc107] font-bold text-lg">PR</div>
+                    <div class="w-12 h-12 bg-[#0a2b3c] rounded-full flex items-center justify-center text-[#ffc107] font-bold text-lg">
+                        <?php echo substr($officer['first_name'], 0, 1) . substr($officer['last_name'], 0, 1); ?>
+                    </div>
                     <div>
-                        <p class="font-semibold text-[#0a2b3c]">PO2 Pedro Reyes</p>
-                        <p class="text-xs text-gray-500">72 total activities</p>
+                        <p class="font-semibold text-[#0a2b3c]"><?php echo $officer['rank'] . ' ' . $officer['first_name'] . ' ' . $officer['last_name']; ?></p>
+                        <p class="text-xs text-gray-500"><?php echo $officer['total_activities']; ?> total activities</p>
                     </div>
                 </div>
-                <!-- Officer 2 -->
-                <div class="bg-white p-4 rounded-lg shadow-md flex items-center gap-3">
-                    <div class="w-12 h-12 bg-[#0a2b3c] rounded-full flex items-center justify-center text-[#ffc107] font-bold text-lg">MS</div>
-                    <div>
-                        <p class="font-semibold text-[#0a2b3c]">SPO1 Maria Santos</p>
-                        <p class="text-xs text-gray-500">68 total activities</p>
-                    </div>
-                </div>
-                <!-- Officer 3 -->
-                <div class="bg-white p-4 rounded-lg shadow-md flex items-center gap-3">
-                    <div class="w-12 h-12 bg-[#0a2b3c] rounded-full flex items-center justify-center text-[#ffc107] font-bold text-lg">JC</div>
-                    <div>
-                        <p class="font-semibold text-[#0a2b3c]">PO3 Juan Dela Cruz</p>
-                        <p class="text-xs text-gray-500">65 total activities</p>
-                    </div>
-                </div>
+                <?php endwhile; ?>
             </div>
         </div>
 
-        <!-- RECENT ACTIVITY MINI CARDS - Lightweight -->
+        <!-- RECENT ACTIVITY MINI CARDS - From Database -->
         <div>
             <h3 class="text-lg font-semibold text-[#0a2b3c] mb-4 flex items-center gap-2">
                 <i class="fas fa-clock text-[#ffc107]"></i> Recent Activities
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500">
-                    <p class="text-xs text-gray-500">Today 9:30 AM</p>
-                    <p class="font-medium">Foot Patrol - Tankulan</p>
-                    <p class="text-xs text-gray-600">PO3 J. Dela Cruz</p>
+                <?php foreach ($recent as $activity): ?>
+                <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 
+                    <?php 
+                    echo $activity['type'] == 'patrol' ? 'border-blue-500' : 
+                        ($activity['type'] == 'checkpoint' ? 'border-red-500' : 'border-green-500'); 
+                    ?>">
+                    <p class="text-xs text-gray-500"><?php echo date('M d, Y h:i A', strtotime($activity['submitted_at'])); ?></p>
+                    <p class="font-medium">
+                        <?php 
+                        if ($activity['type'] == 'patrol') echo $activity['subtype'];
+                        elseif ($activity['type'] == 'checkpoint') echo 'Checkpoint';
+                        else echo $activity['subtype'];
+                        ?> - <?php echo $activity['barangay_name']; ?>
+                    </p>
+                    <p class="text-xs text-gray-600"><?php echo $activity['officer_name']; ?></p>
+                    <p class="text-xs mt-1">
+                        <span class="
+                        <?php 
+                        echo $activity['status'] == 'approved' ? 'text-green-600' : 
+                            ($activity['status'] == 'pending' ? 'text-yellow-600' : 'text-red-600'); 
+                        ?>">
+                        <?php echo ucfirst($activity['status']); ?>
+                        </span>
+                    </p>
                 </div>
-                <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-red-500">
-                    <p class="text-xs text-gray-500">Today 7:15 AM</p>
-                    <p class="font-medium">Checkpoint - Alae</p>
-                    <p class="text-xs text-gray-600">SPO1 M. Santos</p>
-                </div>
-                <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-green-500">
-                    <p class="text-xs text-gray-500">Yesterday 2:30 PM</p>
-                    <p class="font-medium">Oplan Bakal - Dahilayan</p>
-                    <p class="text-xs text-gray-600">PO2 P. Reyes</p>
-                </div>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>
@@ -413,3 +539,4 @@
     </script>
 </body>
 </html>
+<?php $conn->close(); ?>
