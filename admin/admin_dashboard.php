@@ -235,6 +235,7 @@ $top_officers = $conn->query("
             <h2 class="text-xl font-semibold">PNP Admin</h2>
         </div>
 
+        
         <!-- Admin Info -->
         <div class="bg-[#1e4a6a] p-3 rounded-lg mb-4 text-center">
             <p class="text-sm text-yellow-400 font-medium"><?php echo $_SESSION['full_name'] ?? 'Admin'; ?></p>
@@ -289,6 +290,12 @@ $top_officers = $conn->query("
                 </a>
             </li>
 
+            <li class="p-3 rounded hover:bg-[#1e4a6a] cursor-pointer">
+                <a href="all_reports.php" class="text-white no-underline block">
+                    <i class="fas fa-file-alt mr-3"></i> All Reports
+                </a>
+            </li>
+
             <li class="p-3 rounded hover:bg-[#1e4a6a] cursor-pointer mt-5 pt-4 border-t border-[#1e4a6a]">
                 <a href="../logout.php" class="text-white no-underline block">
                     <i class="fas fa-sign-out-alt mr-3"></i> Logout
@@ -301,10 +308,38 @@ $top_officers = $conn->query("
     <div class="flex-1 p-8 bg-[#eef2f6] overflow-y-auto h-screen">
         
         <!-- Header with PNP Gold Accent -->
-        <div class="bg-white p-6 rounded-lg shadow-md mb-6 border-l-4 border-[#ffc107]">
-            <h2 class="text-2xl font-bold text-[#0a2b3c]">Dashboard Overview</h2>
-            <p class="text-gray-600 mt-1">Welcome back, <?php echo $_SESSION['full_name'] ?? 'Admin'; ?>. System monitoring panel.</p>
+<!-- In the header section, replace the existing header with this: -->
+<div class="bg-white p-6 rounded-lg shadow-md mb-6 border-l-4 border-yellow-400 flex justify-between items-center">
+    <div>
+        <h2 class="text-2xl font-bold text-[#08324f]">Dashboard Overview</h2>
+        <p class="text-gray-600 mt-1">Welcome back, <?php echo $_SESSION['full_name'] ?? 'Admin'; ?>. System monitoring panel.</p>
+    </div>
+    
+    <!-- Notification Bell -->
+    <div class="relative">
+        <button id="notificationBell" class="relative p-2 text-gray-600 hover:text-[#08324f] transition" onclick="toggleNotifications()">
+            <i class="fas fa-bell text-2xl"></i>
+            <span id="notificationBadge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden">0</span>
+        </button>
+        
+        <!-- Notification Dropdown -->
+        <div id="notificationDropdown" class="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 hidden z-50">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-semibold text-gray-800">Notifications</h3>
+                <button onclick="markAllAsRead()" class="text-xs text-blue-600 hover:text-blue-800">Mark all as read</button>
+            </div>
+            <div id="notificationList" class="max-h-96 overflow-y-auto">
+                <!-- Notifications will be loaded here -->
+                <div class="p-4 text-center text-gray-500">
+                    <i class="fas fa-spinner fa-spin mr-2"></i> Loading...
+                </div>
+            </div>
+            <div class="p-3 border-t border-gray-200 text-center">
+                <a href="notifications.php" class="text-sm text-blue-600 hover:text-blue-800">View all notifications</a>
+            </div>
         </div>
+    </div>
+</div>
 
         <!-- QUICK STATS ROW - Summary Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -577,6 +612,152 @@ $top_officers = $conn->query("
                 });
             });
         });
+
+        // Notification System
+let notificationCheckInterval;
+
+function checkNotifications() {
+    fetch('get_notifications.php?action=get_count')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.count > 0) {
+                document.getElementById('notificationBadge').textContent = data.count;
+                document.getElementById('notificationBadge').classList.remove('hidden');
+            } else {
+                document.getElementById('notificationBadge').classList.add('hidden');
+            }
+        });
+}
+
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    const isHidden = dropdown.classList.contains('hidden');
+    
+    if (isHidden) {
+        loadNotifications();
+        dropdown.classList.remove('hidden');
+        
+        // Mark as seen when opened
+        setTimeout(() => {
+            fetch('get_notifications.php?action=mark_read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            .then(response => response.json())
+            .then(() => {
+                document.getElementById('notificationBadge').classList.add('hidden');
+            });
+        }, 2000);
+    } else {
+        dropdown.classList.add('hidden');
+    }
+}
+
+function loadNotifications() {
+    const list = document.getElementById('notificationList');
+    list.innerHTML = '<div class="p-4 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading...</div>';
+    
+    fetch('get_notifications.php?action=get_notifications')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.notifications.length > 0) {
+                list.innerHTML = '';
+                data.notifications.forEach(notif => {
+                    const timeAgo = getTimeAgo(notif.created_at);
+                    const icon = getNotificationIcon(notif.type);
+                    const bgClass = notif.is_read ? 'bg-gray-50' : 'bg-blue-50';
+                    
+                    list.innerHTML += `
+                        <a href="${notif.report_link}" class="block p-4 ${bgClass} hover:bg-gray-100 border-b border-gray-200 transition" onclick="markNotificationRead(${notif.notification_id})">
+                            <div class="flex items-start gap-3">
+                                <div class="text-${icon.color} text-xl">
+                                    <i class="fas ${icon.icon}"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm text-gray-800">${notif.message}</p>
+                                    <p class="text-xs text-gray-500 mt-1">${timeAgo}</p>
+                                </div>
+                                ${!notif.is_read ? '<span class="w-2 h-2 bg-blue-600 rounded-full"></span>' : ''}
+                            </div>
+                        </a>
+                    `;
+                });
+            } else {
+                list.innerHTML = '<div class="p-8 text-center text-gray-500"><i class="fas fa-bell-slash text-4xl mb-3"></i><p>No notifications</p></div>';
+            }
+        });
+}
+
+function markNotificationRead(id) {
+    fetch('get_notifications.php?action=mark_read', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'notification_id=' + id
+    });
+}
+
+function markAllAsRead() {
+    fetch('get_notifications.php?action=mark_read', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    }).then(() => {
+        document.getElementById('notificationBadge').classList.add('hidden');
+        loadNotifications();
+    });
+}
+
+function getNotificationIcon(type) {
+    switch(type) {
+        case 'new_report':
+            return { icon: 'fa-file-alt', color: 'blue-600' };
+        case 'report_approved':
+            return { icon: 'fa-check-circle', color: 'green-600' };
+        case 'report_rejected':
+            return { icon: 'fa-times-circle', color: 'red-600' };
+        default:
+            return { icon: 'fa-bell', color: 'gray-600' };
+    }
+}
+
+function getTimeAgo(timestamp) {
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diff = Math.floor((now - past) / 1000); // seconds
+    
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + ' minutes ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' hours ago';
+    return Math.floor(diff / 86400) + ' days ago';
+}
+
+// Check for new notifications every 30 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    checkNotifications();
+    notificationCheckInterval = setInterval(checkNotifications, 30000);
+});
+
+// Close notification dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('notificationDropdown');
+    const bell = document.getElementById('notificationBell');
+    
+    if (!bell.contains(event.target) && !dropdown.contains(event.target)) {
+        dropdown.classList.add('hidden');
+    }
+});
+
+// Stop checking when leaving page
+window.addEventListener('beforeunload', function() {
+    if (notificationCheckInterval) {
+        clearInterval(notificationCheckInterval);
+    }
+});
     </script>
 </body>
 </html>

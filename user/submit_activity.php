@@ -2,7 +2,7 @@
 // =====================================================
 // FILE: user/submit_activity.php
 // PURPOSE: Process activity form submission
-// FIXED: Added checkpoint_arrests handling
+// UPDATED: Added notification creation
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
@@ -70,6 +70,7 @@ if (strpos($activity_type, 'patrol') !== false) {
         $success = true;
         $activity_id = $stmt->insert_id;
         $activity_table = 'patrol_activities';
+        $report_type = 'patrol';
     }
     
 } elseif ($activity_type === 'checkpoint') {
@@ -98,6 +99,7 @@ if (strpos($activity_type, 'patrol') !== false) {
         $success = true;
         $activity_id = $stmt->insert_id;
         $activity_table = 'checkpoint_activities';
+        $report_type = 'checkpoint';
     }
     
 } elseif ($activity_type === 'oplan_bakal' || $activity_type === 'oplan_sita') {
@@ -127,6 +129,7 @@ if (strpos($activity_type, 'patrol') !== false) {
         $success = true;
         $activity_id = $stmt->insert_id;
         $activity_table = 'oplan_activities';
+        $report_type = 'oplan';
     }
 }
 
@@ -156,13 +159,45 @@ if ($success && isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_
     }
 }
 
+// Create notification for admin if submission was successful
 if ($success) {
+    // Get user's name for the notification
+    $user_stmt = $conn->prepare("SELECT rank, first_name, last_name FROM users WHERE user_id = ?");
+    $user_stmt->bind_param("i", $user_id);
+    $user_stmt->execute();
+    $user_data = $user_stmt->get_result()->fetch_assoc();
+    $user_name = $user_data['rank'] . ' ' . $user_data['first_name'] . ' ' . $user_data['last_name'];
+    
+    // Get barangay name
+    $barangay_stmt = $conn->prepare("SELECT barangay_name FROM barangays WHERE barangay_id = ?");
+    $barangay_stmt->bind_param("i", $barangay_id);
+    $barangay_stmt->execute();
+    $barangay_data = $barangay_stmt->get_result()->fetch_assoc();
+    $barangay_name = $barangay_data['barangay_name'];
+    
+    // Create notification message
+    $report_type_display = ucfirst(str_replace('_', ' ', $activity_type));
+    $message = "New $report_type_display report submitted by $user_name in $barangay_name";
+    
+    // Insert notification for all admin users
+    $notif_stmt = $conn->prepare("
+        INSERT INTO notifications (user_id, type, message, report_type, report_id)
+        SELECT user_id, 'new_report', ?, ?, ?
+        FROM users WHERE role = 'admin'
+    ");
+    $notif_stmt->bind_param("ssi", $message, $report_type, $activity_id);
+    $notif_stmt->execute();
+    $notif_stmt->close();
+    
     $_SESSION['success'] = 'Activity reported successfully!';
 } else {
     $_SESSION['error'] = 'Failed to submit activity. Please try again.';
 }
 
+// Close all statements
 if (isset($stmt)) $stmt->close();
+if (isset($user_stmt)) $user_stmt->close();
+if (isset($barangay_stmt)) $barangay_stmt->close();
 $conn->close();
 
 header('Location: user_dashboard.php');

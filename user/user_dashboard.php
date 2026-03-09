@@ -1,7 +1,8 @@
 <?php
 // =====================================================
-// FILE: user/user_dashboard.php (FIXED WORKING VERSION)
-// ADDED: Arrests field to checkpoint form
+// FILE: user/user_dashboard.php
+// PURPOSE: User dashboard with profile update and picture upload
+// FIXED: Profile picture upload now working
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
@@ -13,6 +14,118 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
+
+// Handle profile update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
+    $contact_number = $_POST['contact_number'] ?? '';
+    $address = $_POST['address'] ?? '';
+    $emergency_contact = $_POST['emergency_contact'] ?? '';
+    $emergency_number = $_POST['emergency_number'] ?? '';
+    
+    // Handle profile picture upload
+    $profile_pic_path = null;
+    if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] === UPLOAD_ERR_OK) {
+        $file = $_FILES['profile_pic'];
+        $file_size = $file['size'] / (1024 * 1024); // Size in MB
+        
+        if ($file_size <= 5) { // Max 5MB for profile pics
+            $upload_dir = '../uploads/profiles/';
+            if (!file_exists($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            
+            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $filename = 'profile_' . $user_id . '_' . time() . '.' . $extension;
+            $filepath = $upload_dir . $filename;
+            $relative_path = 'uploads/profiles/' . $filename; // Path to store in database
+            
+            if (move_uploaded_file($file['tmp_name'], $filepath)) {
+                $profile_pic_path = $relative_path;
+                
+                // Delete old profile picture if exists
+                $old_pic = $conn->query("SELECT profile_pic FROM users WHERE user_id = $user_id")->fetch_assoc();
+                if ($old_pic && $old_pic['profile_pic'] && file_exists('../' . $old_pic['profile_pic'])) {
+                    unlink('../' . $old_pic['profile_pic']);
+                }
+            }
+        } else {
+            $_SESSION['error'] = 'Profile picture must be less than 5MB';
+            header('Location: user_dashboard.php');
+            exit();
+        }
+    }
+    
+    // Update user information
+    if ($profile_pic_path) {
+        $update_stmt = $conn->prepare("
+            UPDATE users SET 
+                contact_number = ?, address = ?,
+                emergency_contact_name = ?, emergency_contact_number = ?,
+                profile_pic = ?
+            WHERE user_id = ?
+        ");
+        $update_stmt->bind_param("sssssi", 
+            $contact_number, $address,
+            $emergency_contact, $emergency_number, $profile_pic_path, $user_id
+        );
+    } else {
+        $update_stmt = $conn->prepare("
+            UPDATE users SET 
+                contact_number = ?, address = ?,
+                emergency_contact_name = ?, emergency_contact_number = ?
+            WHERE user_id = ?
+        ");
+        $update_stmt->bind_param("ssssi", 
+            $contact_number, $address,
+            $emergency_contact, $emergency_number, $user_id
+        );
+    }
+    
+    if ($update_stmt->execute()) {
+        $_SESSION['success'] = 'Profile updated successfully';
+    } else {
+        $_SESSION['error'] = 'Failed to update profile: ' . $conn->error;
+    }
+    $update_stmt->close();
+    
+    header('Location: user_dashboard.php');
+    exit();
+}
+
+// Handle password change
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+    $current_password = $_POST['current_password'] ?? '';
+    $new_password = $_POST['new_password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
+    
+    // Verify current password
+    $check_stmt = $conn->prepare("SELECT password FROM users WHERE user_id = ?");
+    $check_stmt->bind_param("i", $user_id);
+    $check_stmt->execute();
+    $result = $check_stmt->get_result();
+    $user_data = $result->fetch_assoc();
+    
+    if ($current_password !== $user_data['password']) {
+        $_SESSION['error'] = 'Current password is incorrect';
+    } elseif (strlen($new_password) < 6) {
+        $_SESSION['error'] = 'New password must be at least 6 characters';
+    } elseif ($new_password !== $confirm_password) {
+        $_SESSION['error'] = 'New passwords do not match';
+    } else {
+        $update_stmt = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
+        $update_stmt->bind_param("si", $new_password, $user_id);
+        if ($update_stmt->execute()) {
+            $_SESSION['success'] = 'Password changed successfully';
+        } else {
+            $_SESSION['error'] = 'Failed to change password';
+        }
+        $update_stmt->close();
+    }
+    $check_stmt->close();
+    
+    header('Location: user_dashboard.php');
+    exit();
+}
 
 // Get user information from database
 $stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ?");
@@ -108,6 +221,19 @@ $barangays->data_seek(0); // Reset pointer
 date_default_timezone_set('Asia/Manila');
 $current_date = date('Y-m-d');
 $current_time = date('H:i');
+
+// Format dates
+$last_login = $user['last_login'] ? date('F d, Y h:i A', strtotime($user['last_login'])) : 'Never logged in';
+$member_since = $user['date_hired'] ? date('F d, Y', strtotime($user['date_hired'])) : 'Not specified';
+
+// Default profile picture if none
+$profile_pic = !empty($user['profile_pic']) ? '../' . $user['profile_pic'] : '../image/default-avatar.png';
+
+// Create default avatar if it doesn't exist
+if (!file_exists('../image/default-avatar.png')) {
+    // You can create a default avatar or use a placeholder
+    $profile_pic = 'https://ui-avatars.com/api/?name=' . urlencode($user['first_name'] . '+' . $user['last_name']) . '&size=100&background=1f6fb2&color=fff';
+}
 ?>
 
 <!DOCTYPE html>
@@ -195,37 +321,140 @@ $current_time = date('H:i');
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
         }
-        .success-message {
+        .modal {
+            display: none;
             position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #10b981;
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
             z-index: 1000;
-            animation: slideIn 0.3s ease;
+            justify-content: center;
+            align-items: center;
         }
-        .error-message {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #ef4444;
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            z-index: 1000;
-            animation: slideIn 0.3s ease;
+        .modal.active {
+            display: flex;
         }
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #ffc107;
+        }
+        .sidebar-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ffc107;
+            margin: 0 auto;
         }
     </style>
 </head>
 <body class="flex flex-col md:flex-row bg-[#0a3d62] min-h-screen">
+
+    <!-- Edit Profile Modal -->
+    <div id="editProfileModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-[#08324f]">Edit Profile</h3>
+                <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            
+            <form method="POST" enctype="multipart/form-data" class="space-y-4">
+                <input type="hidden" name="update_profile" value="1">
+                
+                <!-- Profile Picture Upload -->
+                <div class="text-center mb-4">
+                    <div class="relative inline-block">
+                        <img id="profilePreview" src="<?php echo $profile_pic; ?>" class="profile-avatar" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name=<?php echo urlencode($user['first_name'].'+'.$user['last_name']); ?>&size=100&background=1f6fb2&color=fff'">
+                        <label for="profile_pic" class="absolute bottom-0 right-0 bg-[#1f6fb2] text-white p-2 rounded-full cursor-pointer hover:bg-[#0a3d62]">
+                            <i class="fas fa-camera"></i>
+                        </label>
+                        <input type="file" id="profile_pic" name="profile_pic" accept="image/*" class="hidden" onchange="previewImage(this)">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Max size: 5MB. JPG, PNG only</p>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                        <input type="text" name="contact_number" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>" class="w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                        <textarea name="address" rows="2" class="w-full p-2 border border-gray-300 rounded-lg"><?php echo htmlspecialchars($user['address'] ?? ''); ?></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Name</label>
+                        <input type="text" name="emergency_contact" value="<?php echo htmlspecialchars($user['emergency_contact_name'] ?? ''); ?>" class="w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Number</label>
+                        <input type="text" name="emergency_number" value="<?php echo htmlspecialchars($user['emergency_contact_number'] ?? ''); ?>" class="w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+                
+                <div class="flex gap-3 justify-end mt-6">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-[#1f6fb2] text-white rounded-lg hover:bg-[#0a3d62]">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-[#08324f]">Change Password</h3>
+                <button onclick="closePasswordModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            
+            <form method="POST" class="space-y-4">
+                <input type="hidden" name="change_password" value="1">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                    <input type="password" name="current_password" required class="w-full p-2 border border-gray-300 rounded-lg">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                    <input type="password" name="new_password" required class="w-full p-2 border border-gray-300 rounded-lg">
+                    <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                    <input type="password" name="confirm_password" required class="w-full p-2 border border-gray-300 rounded-lg">
+                </div>
+                
+                <div class="flex gap-3 justify-end mt-6">
+                    <button type="button" onclick="closePasswordModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Change Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Mobile Menu Button -->
     <button id="mobileMenuBtn" class="md:hidden fixed top-4 left-4 z-50 bg-[#08324f] text-white p-3 rounded-lg shadow-lg">
@@ -246,13 +475,10 @@ $current_time = date('H:i');
             <h2 class="text-lg md:text-xl font-semibold">PNP User</h2>
         </div>
 
-        <!-- User Profile Section -->
+        <!-- User Profile Section - UPDATED with profile picture -->
         <div class="bg-gradient-to-b from-[#0a3d62] to-[#08324f] p-5 rounded-xl mb-6 text-center border border-[#1a4b6d] shadow-lg">
-            <div class="relative mx-auto w-20 h-20 mb-3">
-                <div class="absolute inset-0 bg-yellow-400 rounded-full animate-pulse opacity-20"></div>
-                <div class="relative w-full h-full bg-[#1f6fb2] rounded-full flex items-center justify-center border-3 border-yellow-400 shadow-lg">
-                    <span class="text-3xl font-bold text-white"><?php echo substr($user['first_name'], 0, 1) . substr($user['last_name'], 0, 1); ?></span>
-                </div>
+            <div class="relative mx-auto w-24 h-24 mb-3">
+                <img src="<?php echo $profile_pic; ?>" class="w-full h-full rounded-full object-cover border-3 border-yellow-400 shadow-lg" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name=<?php echo urlencode($user['first_name'].'+'.$user['last_name']); ?>&size=100&background=1f6fb2&color=fff'">
                 <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
             </div>
             
@@ -270,10 +496,14 @@ $current_time = date('H:i');
                 </div>
             </div>
             
-            <div class="mt-3 flex justify-center">
-                <span class="bg-green-500 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
-                    <i class="fas fa-circle text-[8px] animate-pulse"></i> Active on Duty
-                </span>
+            <!-- Profile Actions -->
+            <div class="mt-4 flex justify-center gap-2">
+                <button onclick="openEditModal()" class="bg-[#1f6fb2] text-white text-xs px-3 py-1 rounded-full hover:bg-[#0a3d62] transition">
+                    <i class="fas fa-edit mr-1"></i> Edit Profile
+                </button>
+                <button onclick="openPasswordModal()" class="bg-yellow-500 text-white text-xs px-3 py-1 rounded-full hover:bg-yellow-600 transition">
+                    <i class="fas fa-key mr-1"></i> Change Password
+                </button>
             </div>
         </div>
 
@@ -305,22 +535,23 @@ $current_time = date('H:i');
         
         <!-- Display Session Messages -->
         <?php if (isset($_SESSION['success'])): ?>
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-lg">
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-lg animate-slideIn">
             <i class="fas fa-check-circle mr-2"></i> <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
         </div>
         <?php endif; ?>
         
         <?php if (isset($_SESSION['error'])): ?>
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-lg">
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-lg animate-slideIn">
             <i class="fas fa-exclamation-circle mr-2"></i> <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
         </div>
         <?php endif; ?>
 
-        <!-- Header -->
+        <!-- Header with User Info -->
         <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm mb-4 md:mb-6 flex flex-col sm:flex-row gap-3 sm:gap-0 justify-between items-start sm:items-center">
             <div class="ml-10 md:ml-0">
                 <h2 class="text-xl md:text-2xl font-bold text-[#08324f]">User Dashboard</h2>
                 <p class="text-xs md:text-sm text-gray-600 mt-1">Welcome back, <?php echo $user['first_name']; ?></p>
+                <p class="text-xs text-gray-500 mt-1"><i class="far fa-clock mr-1"></i> Last login: <?php echo $last_login; ?></p>
             </div>
             <div class="flex flex-wrap gap-2 w-full sm:w-auto">
                 <div class="bg-green-100 text-green-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold flex items-center">
@@ -328,6 +559,31 @@ $current_time = date('H:i');
                 </div>
                 <div class="bg-[#08324f] text-yellow-400 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold flex items-center">
                     <i class="fas fa-map-marker-alt mr-1 md:mr-2 text-xs"></i> On Duty
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Information Card -->
+        <div class="bg-white p-4 rounded-lg shadow-md mb-4">
+            <h3 class="text-lg font-semibold text-[#08324f] mb-3 flex items-center gap-2">
+                <i class="fas fa-address-card text-yellow-500"></i> My Contact Information
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-xs text-gray-500">Contact Number</p>
+                    <p class="font-medium"><?php echo $user['contact_number'] ?? 'Not specified'; ?></p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Address</p>
+                    <p class="font-medium"><?php echo $user['address'] ?? 'Not specified'; ?></p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Emergency Contact</p>
+                    <p class="font-medium"><?php echo $user['emergency_contact_name'] ?? 'Not specified'; ?></p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Emergency Number</p>
+                    <p class="font-medium"><?php echo $user['emergency_contact_number'] ?? 'Not specified'; ?></p>
                 </div>
             </div>
         </div>
@@ -452,7 +708,7 @@ $current_time = date('H:i');
                     </div>
                 </div>
 
-                <!-- Checkpoint Fields - UPDATED with Arrests field -->
+                <!-- Checkpoint Fields -->
                 <div id="checkpointFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
                     <h4 class="font-medium text-sm mb-3 text-[#08324f]">Checkpoint Details</h4>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -561,6 +817,22 @@ $current_time = date('H:i');
         </div>
     </div>
 
+    <style>
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .animate-slideIn {
+            animation: slideIn 0.3s ease forwards;
+        }
+    </style>
+
     <script>
         // Mobile Menu Functions
         const sidebar = document.getElementById('sidebar');
@@ -584,6 +856,47 @@ $current_time = date('H:i');
         if (closeBtn) closeBtn.addEventListener('click', closeMobileMenu);
         if (overlay) overlay.addEventListener('click', closeMobileMenu);
         window.addEventListener('resize', function() { if (window.innerWidth >= 768) closeMobileMenu(); });
+
+        // Modal Functions
+        function openEditModal() {
+            document.getElementById('editProfileModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editProfileModal').classList.remove('active');
+        }
+
+        function openPasswordModal() {
+            document.getElementById('changePasswordModal').classList.add('active');
+        }
+
+        function closePasswordModal() {
+            document.getElementById('changePasswordModal').classList.remove('active');
+        }
+
+        // Image preview
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('profilePreview').src = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
+            const editModal = document.getElementById('editProfileModal');
+            const passwordModal = document.getElementById('changePasswordModal');
+            
+            if (event.target === editModal) {
+                editModal.classList.remove('active');
+            }
+            if (event.target === passwordModal) {
+                passwordModal.classList.remove('active');
+            }
+        });
 
         // Map Variables
         let map;
@@ -617,21 +930,17 @@ $current_time = date('H:i');
         // Function to set Philippine date and time
         function setPhilippineDateTime() {
             const now = new Date();
-            // Philippine time is UTC+8
             const phTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
             
-            // Format date as YYYY-MM-DD
             const year = phTime.getUTCFullYear();
             const month = String(phTime.getUTCMonth() + 1).padStart(2, '0');
             const day = String(phTime.getUTCDate()).padStart(2, '0');
             const phDate = `${year}-${month}-${day}`;
             
-            // Format time as HH:MM (24-hour)
             const hours = String(phTime.getUTCHours()).padStart(2, '0');
             const minutes = String(phTime.getUTCMinutes()).padStart(2, '0');
             const phTimeStr = `${hours}:${minutes}`;
             
-            // Set the input values
             document.getElementById('activity_date').value = phDate;
             document.getElementById('activity_time').value = phTimeStr;
         }
@@ -658,7 +967,6 @@ $current_time = date('H:i');
             });
         }
 
-        // Function to find the nearest barangay based on coordinates
         function findNearestBarangay(lat, lng) {
             let nearestBarangay = null;
             let minDistance = Infinity;
