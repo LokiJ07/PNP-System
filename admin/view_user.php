@@ -125,154 +125,176 @@
 
             <!-- Profile Details -->
             <div class="p-6">
+                <!-- User Info Cards Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Personal Information -->
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-[#08324f] border-b pb-2 flex items-center gap-2">
-                            <i class="fas fa-user-circle text-yellow-500"></i> Personal Information
+                    <!-- Personal Information Card -->
+                    <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">
+                        <h3 class="font-semibold text-[#08324f] mb-3 flex items-center gap-2">
+                            <i class="fas fa-user-circle text-blue-500"></i> Personal Information
                         </h3>
-                        
-                        <div class="grid grid-cols-3 gap-2 text-sm">
-                            <span class="text-gray-500">Full Name:</span>
-                            <span class="col-span-2 font-medium">Juan M. Dela Cruz</span>
-                            
-                            <span class="text-gray-500">Rank:</span>
-                            <span class="col-span-2 font-medium">Police Officer 3 (PO3)</span>
-                            
-                            <span class="text-gray-500">Birthdate:</span>
-                            <span class="col-span-2 font-medium">March 15, 1990</span>
-                            
-                            <span class="text-gray-500">Age:</span>
-                            <span class="col-span-2 font-medium">36 years old</span>
-                            
-                            <span class="text-gray-500">Gender:</span>
-                            <span class="col-span-2 font-medium">Male</span>
-                            
-                            <span class="text-gray-500">Civil Status:</span>
-                            <span class="col-span-2 font-medium">Married</span>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-gray-500">Full Name:</span> <span class="font-medium ml-2">Juan M. Dela Cruz</span></p>
+                            <p><span class="text-gray-500">Rank:</span> <span class="font-medium ml-2">Police Officer 3 (PO3)</span></p>
+                            <p><span class="text-gray-500">Birthdate:</span> <span class="font-medium ml-2">March 15, 1990 (36 yrs)</span></p>
+                            <p><span class="text-gray-500">Gender:</span> <span class="font-medium ml-2">Male</span></p>
+                            <p><span class="text-gray-500">Civil Status:</span> <span class="font-medium ml-2">Married</span></p>
                         </div>
                     </div>
 
-                    <!-- Contact Information -->
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-[#08324f] border-b pb-2 flex items-center gap-2">
-                            <i class="fas fa-address-card text-yellow-500"></i> Contact Information
+                    <!-- Contact Information Card -->
+                    <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-green-500">
+                        <h3 class="font-semibold text-[#08324f] mb-3 flex items-center gap-2">
+                            <i class="fas fa-address-card text-green-500"></i> Contact Information
                         </h3>
-                        
-                        <div class="grid grid-cols-3 gap-2 text-sm">
-                            <span class="text-gray-500">Email:</span>
-                            <span class="col-span-2 font-medium">juan.delacruz@pnp.gov.ph</span>
-                            
-                            <span class="text-gray-500">Contact #:</span>
-                            <span class="col-span-2 font-medium">0912-345-6789</span>
-                            
-                            <span class="text-gray-500">Address:</span>
-                            <span class="col-span-2 font-medium">Poblacion, Tankulan, Manolo Fortich</span>
-                            
-                            <span class="text-gray-500">Emergency Contact:</span>
-                            <span class="col-span-2 font-medium">Maria Dela Cruz - 0918-765-4321</span>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-gray-500">Email:</span> <span class="font-medium ml-2">juan.delacruz@pnp.gov.ph</span></p>
+                            <p><span class="text-gray-500">Contact #:</span> <span class="font-medium ml-2">0912-345-6789</span></p>
+                            <p><span class="text-gray-500">Address:</span> <span class="font-medium ml-2">Poblacion, Tankulan</span></p>
+                            <p><span class="text-gray-500">Emergency:</span> <span class="font-medium ml-2">Maria Dela Cruz - 0918-765-4321</span></p>
                         </div>
                     </div>
 
-                    <!-- Assignment Details -->
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-[#08324f] border-b pb-2 flex items-center gap-2">
-                            <i class="fas fa-briefcase text-yellow-500"></i> Assignment Details
+                    <!-- Assignment Details Card -->
+                    <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-purple-500">
+                        <h3 class="font-semibold text-[#08324f] mb-3 flex items-center gap-2">
+                            <i class="fas fa-briefcase text-purple-500"></i> Assignment Details
                         </h3>
-                        
-                        <div class="grid grid-cols-3 gap-2 text-sm">
-                            <span class="text-gray-500">Station:</span>
-                            <span class="col-span-2 font-medium">Manolo Fortich MPS</span>
-                            
-                            <span class="text-gray-500">Unit:</span>
-                            <span class="col-span-2 font-medium">Patrol Unit</span>
-                            
-                            <span class="text-gray-500">Role:</span>
-                            <span class="col-span-2 font-medium">Patrol Officer</span>
-                            
-                            <span class="text-gray-500">Date Hired:</span>
-                            <span class="col-span-2 font-medium">January 15, 2020</span>
-                            
-                            <span class="text-gray-500">Years of Service:</span>
-                            <span class="col-span-2 font-medium">6 years</span>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-gray-500">Station:</span> <span class="font-medium ml-2">Manolo Fortich MPS</span></p>
+                            <p><span class="text-gray-500">Unit:</span> <span class="font-medium ml-2">Patrol Unit</span></p>
+                            <p><span class="text-gray-500">Role:</span> <span class="font-medium ml-2">Patrol Officer</span></p>
+                            <p><span class="text-gray-500">Date Hired:</span> <span class="font-medium ml-2">January 15, 2020 (6 yrs)</span></p>
                         </div>
                     </div>
 
-                    <!-- Account Information -->
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-[#08324f] border-b pb-2 flex items-center gap-2">
+                    <!-- Account Information Card -->
+                    <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-yellow-500">
+                        <h3 class="font-semibold text-[#08324f] mb-3 flex items-center gap-2">
                             <i class="fas fa-lock text-yellow-500"></i> Account Information
                         </h3>
-                        
-                        <div class="grid grid-cols-3 gap-2 text-sm">
-                            <span class="text-gray-500">Username:</span>
-                            <span class="col-span-2 font-medium">juan.delacruz</span>
-                            
-                            <span class="text-gray-500">Last Login:</span>
-                            <span class="col-span-2 font-medium">June 10, 2026 08:30 AM</span>
-                            
-                            <span class="text-gray-500">Last IP:</span>
-                            <span class="col-span-2 font-medium">192.168.1.105</span>
-                            
-                            <span class="text-gray-500">Account Status:</span>
-                            <span class="col-span-2"><span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">Active</span></span>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-gray-500">Username:</span> <span class="font-medium ml-2">juan.delacruz</span></p>
+                            <p><span class="text-gray-500">Last Login:</span> <span class="font-medium ml-2">June 10, 2026 08:30 AM</span></p>
+                            <p><span class="text-gray-500">Status:</span> <span class="ml-2"><span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">Active</span></span></p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Statistics Summary -->
-                <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="bg-blue-50 p-4 rounded-lg text-center">
-                        <p class="text-2xl font-bold text-[#08324f]">156</p>
-                        <p class="text-xs text-gray-600">Total Patrols</p>
-                    </div>
-                    <div class="bg-green-50 p-4 rounded-lg text-center">
-                        <p class="text-2xl font-bold text-[#08324f]">89</p>
-                        <p class="text-xs text-gray-600">Checkpoints</p>
-                    </div>
-                    <div class="bg-yellow-50 p-4 rounded-lg text-center">
-                        <p class="text-2xl font-bold text-[#08324f]">67</p>
-                        <p class="text-xs text-gray-600">Oplan Ops</p>
-                    </div>
-                    <div class="bg-purple-50 p-4 rounded-lg text-center">
-                        <p class="text-2xl font-bold text-[#08324f]">98%</p>
-                        <p class="text-xs text-gray-600">Accomplishment Rate</p>
-                    </div>
-                </div>
-
-                <!-- Recent Activities by this User -->
+                <!-- Statistics Summary - All Checkpoints, Patrols, Oplans -->
                 <div class="mt-8">
                     <h3 class="text-lg font-semibold text-[#08324f] mb-4 flex items-center gap-2">
-                        <i class="fas fa-history text-yellow-500"></i> Recent Activities by this User
+                        <i class="fas fa-chart-pie text-yellow-500"></i> Activity Statistics
                     </h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full border-collapse">
-                            <thead>
-                                <tr class="bg-gray-100">
-                                    <th class="p-2 text-left text-xs">Date</th>
-                                    <th class="p-2 text-left text-xs">Activity Type</th>
-                                    <th class="p-2 text-left text-xs">Location</th>
-                                    <th class="p-2 text-left text-xs">Status</th>
-                                    <th class="p-2 text-left text-xs">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr class="border-b hover:bg-gray-50">
-                                    <td class="p-2 text-sm">June 10, 2026</td>
-                                    <td class="p-2 text-sm">Foot Patrol</td>
-                                    <td class="p-2 text-sm">Tankulan</td>
-                                    <td class="p-2"><span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">Approved</span></td>
-                                    <td class="p-2"><a href="view_report.php?id=1" class="text-blue-600 hover:underline text-sm">View</a></td>
-                                </tr>
-                                <tr class="border-b hover:bg-gray-50">
-                                    <td class="p-2 text-sm">June 9, 2026</td>
-                                    <td class="p-2 text-sm">Checkpoint</td>
-                                    <td class="p-2 text-sm">Alae</td>
-                                    <td class="p-2"><span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">Approved</span></td>
-                                    <td class="p-2"><a href="view_report.php?id=2" class="text-blue-600 hover:underline text-sm">View</a></td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- Total Patrols Card -->
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-lg shadow-sm border border-blue-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-blue-600 text-sm font-medium">Total Patrols</p>
+                                    <p class="text-3xl font-bold text-[#08324f]">156</p>
+                                </div>
+                                <div class="bg-blue-500 w-12 h-12 rounded-full flex items-center justify-center text-white text-xl">
+                                    <i class="fas fa-walking"></i>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-xs text-gray-500">
+                                <span class="text-green-600">↑ 12%</span> from last month
+                            </div>
+                        </div>
+
+                        <!-- Foot Patrols Card -->
+                        <div class="bg-gradient-to-br from-green-50 to-green-100 p-5 rounded-lg shadow-sm border border-green-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-green-600 text-sm font-medium">Foot Patrol</p>
+                                    <p class="text-3xl font-bold text-[#08324f]">24</p>
+                                </div>
+                                <div class="bg-green-500 w-12 h-12 rounded-full flex items-center justify-center text-white text-xl">
+                                    <i class="fas fa-shoe-prints"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mobile Patrols Card -->
+                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-5 rounded-lg shadow-sm border border-purple-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-purple-600 text-sm font-medium">Mobile Patrol</p>
+                                    <p class="text-3xl font-bold text-[#08324f]">24</p>
+                                </div>
+                                <div class="bg-purple-500 w-12 h-12 rounded-full flex items-center justify-center text-white text-xl">
+                                    <i class="fas fa-car"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Motorcycle Patrols Card -->
+                        <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 p-5 rounded-lg shadow-sm border border-yellow-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-yellow-600 text-sm font-medium">Motorcycle Patrol</p>
+                                    <p class="text-3xl font-bold text-[#08324f]">24</p>
+                                </div>
+                                <div class="bg-yellow-500 w-12 h-12 rounded-full flex items-center justify-center text-white text-xl">
+                                    <i class="fas fa-motorcycle"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Total Checkpoints Card -->
+                        <div class="bg-gradient-to-br from-red-50 to-red-100 p-5 rounded-lg shadow-sm border border-red-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-red-600 text-sm font-medium">Total Checkpoints</p>
+                                    <p class="text-3xl font-bold text-[#08324f]">89</p>
+                                </div>
+                                <div class="bg-red-500 w-12 h-12 rounded-full flex items-center justify-center text-white text-xl">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Oplan Bakal Card -->
+                        <div class="bg-gradient-to-br from-orange-50 to-orange-100 p-5 rounded-lg shadow-sm border border-orange-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-orange-600 text-sm font-medium">Oplan Bakal</p>
+                                    <p class="text-3xl font-bold text-[#08324f]">20</p>
+                                </div>
+                                <div class="bg-orange-500 w-12 h-12 rounded-full flex items-center justify-center text-white text-xl">
+                                    <i class="fas fa-shield-alt"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Oplan Sita Card -->
+                        <div class="bg-gradient-to-br from-pink-50 to-pink-100 p-5 rounded-lg shadow-sm border border-pink-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-pink-600 text-sm font-medium">Oplan Sita</p>
+                                    <p class="text-3xl font-bold text-[#08324f]">28</p>
+                                </div>
+                                <div class="bg-pink-500 w-12 h-12 rounded-full flex items-center justify-center text-white text-xl">
+                                    <i class="fas fa-gavel"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Total Oplans Card -->
+                        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 p-5 rounded-lg shadow-sm border border-indigo-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-indigo-600 text-sm font-medium">Total Oplans</p>
+                                    <p class="text-3xl font-bold text-[#08324f]">48</p>
+                                </div>
+                                <div class="bg-indigo-500 w-12 h-12 rounded-full flex items-center justify-center text-white text-xl">
+                                    <i class="fas fa-tasks"></i>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-xs text-gray-500">
+                                <span class="text-gray-600">Bakal: 20 | Sita: 28</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

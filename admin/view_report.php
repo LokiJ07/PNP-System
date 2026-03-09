@@ -45,10 +45,6 @@
             }
             .sidebar-mobile.open { left: 0; }
         }
-        .form-preview {
-            background-color: #f9fafb;
-            border: 1px solid #e5e7eb;
-        }
     </style>
 </head>
 <body class="flex flex-col md:flex-row bg-[#0a3d62] min-h-screen">
@@ -126,116 +122,106 @@
             </span>
         </div>
 
-        <!-- Report Details - Shows the filled form -->
+        <!-- Report Details - Card Based Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             
-            <!-- Left Column - The Filled Form -->
-            <div class="lg:col-span-2">
+            <!-- Left Column - Main Report Details -->
+            <div class="lg:col-span-2 space-y-4">
+                <!-- Submitted By Card -->
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="bg-[#08324f] text-white px-4 md:px-6 py-3 flex items-center gap-2">
-                        <i class="fas fa-clipboard-list text-yellow-400"></i>
-                        <h3 class="font-semibold">Submitted Activity Form</h3>
+                    <div class="bg-[#08324f] text-white px-4 py-3">
+                        <h3 class="font-semibold"><i class="fas fa-user-shield text-yellow-400 mr-2"></i> Submitted By</h3>
                     </div>
-                    
-                    <div class="p-4 md:p-6">
-                        <!-- Submitted By -->
-                        <div class="flex items-center gap-3 mb-6 pb-4 border-b">
-                            <div class="bg-[#1f6fb2] w-12 h-12 rounded-full flex items-center justify-center text-white font-bold">JD</div>
+                    <div class="p-4">
+                        <div class="flex items-center gap-4">
+                            <div class="bg-[#1f6fb2] w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold">JD</div>
                             <div>
-                                <p class="text-sm text-gray-500">Submitted by</p>
-                                <p class="font-semibold">PO3 Juan Dela Cruz</p>
-                                <p class="text-xs text-gray-500">Badge: PNP-2024-0123</p>
+                                <h4 class="font-bold text-lg">PO3 Juan Dela Cruz</h4>
+                                <p class="text-sm text-gray-600">Badge: PNP-2024-0123</p>
+                                <p class="text-sm text-gray-500 mt-1"><i class="fas fa-map-marker-alt mr-1 text-red-400"></i> Manolo Fortich MPS</p>
                             </div>
                             <div class="ml-auto">
-                                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs">Approved</span>
+                                <span class="bg-green-100 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold">Approved</span>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <!-- Form Fields - Exactly how the user filled it -->
-                        <div class="space-y-4">
+                <!-- Activity Details Card -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-[#08324f] text-white px-4 py-3">
+                        <h3 class="font-semibold"><i class="fas fa-clipboard-list text-yellow-400 mr-2"></i> Activity Details</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <!-- Activity Type -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="text-xs text-gray-500 block mb-1">Activity Type</label>
-                                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 font-medium">
-                                        <i class="fas fa-walking text-blue-500 mr-2"></i> Foot Patrol
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs text-gray-500 block mb-1">Date & Time</label>
-                                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                        <i class="fas fa-calendar text-gray-400 mr-2"></i> June 10, 2026 - 9:30 AM
-                                    </div>
-                                </div>
+                            <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-500">
+                                <p class="text-xs text-gray-500">Activity Type</p>
+                                <p class="font-semibold text-lg"><i class="fas fa-walking text-blue-500 mr-2"></i>Foot Patrol</p>
                             </div>
-
-                            <!-- Location Details -->
-                            <div>
-                                <label class="text-xs text-gray-500 block mb-1">Location</label>
-                                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                    <div class="flex items-start gap-2">
-                                        <i class="fas fa-map-pin text-red-500 mt-1"></i>
-                                        <div>
-                                            <p class="font-medium">Barangay Tankulan, Manolo Fortich</p>
-                                            <p class="text-sm text-gray-600">Poblacion, near Municipal Hall</p>
-                                        </div>
-                                    </div>
-                                </div>
+                            
+                            <!-- Date & Time -->
+                            <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-green-500">
+                                <p class="text-xs text-gray-500">Date & Time</p>
+                                <p class="font-semibold"><i class="fas fa-calendar text-green-500 mr-2"></i>June 10, 2026 - 9:30 AM</p>
                             </div>
-
+                            
+                            <!-- Barangay -->
+                            <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-500">
+                                <p class="text-xs text-gray-500">Barangay</p>
+                                <p class="font-semibold"><i class="fas fa-map-pin text-purple-500 mr-2"></i>Tankulan</p>
+                            </div>
+                            
+                            <!-- Specific Location -->
+                            <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-yellow-500">
+                                <p class="text-xs text-gray-500">Specific Location</p>
+                                <p class="font-semibold"><i class="fas fa-location-dot text-yellow-500 mr-2"></i>Poblacion, near Municipal Hall</p>
+                            </div>
+                            
                             <!-- Personnel Deployed -->
-                            <div>
-                                <label class="text-xs text-gray-500 block mb-1">Number of Personnel Deployed</label>
-                                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                    <i class="fas fa-users text-green-500 mr-2"></i> 4 personnel
-                                </div>
+                            <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-red-500">
+                                <p class="text-xs text-gray-500">Personnel Deployed</p>
+                                <p class="font-semibold"><i class="fas fa-users text-red-500 mr-2"></i>4 personnel</p>
                             </div>
-
-                            <!-- Checkpoint Specific Fields (if applicable) -->
-                            <div id="checkpointFields" class="hidden">
-                                <label class="text-xs text-gray-500 block mb-2">Checkpoint Operations</label>
-                                <div class="grid grid-cols-3 gap-3">
-                                    <div class="bg-gray-50 p-3 rounded-lg border text-center">
-                                        <p class="text-xs text-gray-500">Border Control</p>
-                                        <p class="font-bold">8</p>
-                                    </div>
-                                    <div class="bg-gray-50 p-3 rounded-lg border text-center">
-                                        <p class="text-xs text-gray-500">Mobile Ops</p>
-                                        <p class="font-bold">3</p>
-                                    </div>
-                                    <div class="bg-gray-50 p-3 rounded-lg border text-center">
-                                        <p class="text-xs text-gray-500">TCT/OVR</p>
-                                        <p class="font-bold">2</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Accomplishment Description -->
-                            <div>
-                                <label class="text-xs text-gray-500 block mb-1">Accomplishment Description</label>
-                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm">
-                                    "Conducted routine foot patrol around public market area. Assisted 3 senior citizens crossing the street. Checked 15 establishments for compliance. No unusual incidents reported. All businesses following regulations."
-                                </div>
-                            </div>
-
-                            <!-- GPS Coordinates -->
-                            <div>
-                                <label class="text-xs text-gray-500 block mb-1">GPS Coordinates</label>
-                                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 font-mono text-sm">
-                                    <i class="fas fa-satellite text-purple-500 mr-2"></i> 8.369800° N, 124.863400° E (Accuracy: 5.2m)
-                                </div>
+                            
+                            <!-- Duration -->
+                            <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-indigo-500">
+                                <p class="text-xs text-gray-500">Duration</p>
+                                <p class="font-semibold"><i class="fas fa-clock text-indigo-500 mr-2"></i>2.5 hours</p>
                             </div>
                         </div>
 
-                        <!-- Admin Actions -->
-                        <div class="mt-8 border-t pt-4">
-                            <label class="text-xs text-gray-500 block mb-2">Admin Remarks</label>
-                            <textarea class="w-full p-3 border border-gray-300 rounded-lg text-sm" rows="2" placeholder="Add remarks...">Report verified. Good work. Approved.</textarea>
-                            <div class="flex flex-wrap gap-2 mt-3 justify-end">
-                                <button class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700"><i class="fas fa-check mr-2"></i> Approve</button>
-                                <button class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700"><i class="fas fa-times mr-2"></i> Reject</button>
-                                <button class="bg-[#1f6fb2] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#0a3d62]"><i class="fas fa-save mr-2"></i> Save Remarks</button>
-                            </div>
+                        <!-- GPS Coordinates Card -->
+                        <div class="mt-4 bg-gray-50 p-3 rounded-lg border-l-4 border-gray-700">
+                            <p class="text-xs text-gray-500">GPS Coordinates</p>
+                            <p class="font-mono text-sm"><i class="fas fa-satellite text-gray-700 mr-2"></i>8.369800° N, 124.863400° E (Accuracy: 5.2m)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Accomplishment Description Card -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-[#08324f] text-white px-4 py-3">
+                        <h3 class="font-semibold"><i class="fas fa-trophy text-yellow-400 mr-2"></i> Accomplishment Description</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="bg-blue-50 p-4 rounded-lg italic text-gray-700 border border-blue-100">
+                            "Conducted routine foot patrol around public market area. Assisted 3 senior citizens crossing the street. Checked 15 establishments for compliance. No unusual incidents reported. All businesses following regulations."
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Remarks Card -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-[#08324f] text-white px-4 py-3">
+                        <h3 class="font-semibold"><i class="fas fa-comment text-yellow-400 mr-2"></i> Admin Remarks</h3>
+                    </div>
+                    <div class="p-4">
+                        <textarea class="w-full p-3 border border-gray-300 rounded-lg text-sm" rows="3">Report verified. Good work. Approved.</textarea>
+                        <div class="flex flex-wrap gap-2 mt-3 justify-end">
+                            <button class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700"><i class="fas fa-check mr-2"></i> Approve</button>
+                            <button class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700"><i class="fas fa-times mr-2"></i> Reject</button>
+                            <button class="bg-[#1f6fb2] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#0a3d62]"><i class="fas fa-save mr-2"></i> Save Remarks</button>
                         </div>
                     </div>
                 </div>
@@ -245,13 +231,12 @@
             <div class="space-y-4">
                 <!-- Location Map Card -->
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="bg-[#08324f] text-white px-4 py-3 flex items-center gap-2">
-                        <i class="fas fa-map-marker-alt text-yellow-400"></i>
-                        <h3 class="font-semibold">Report Location</h3>
+                    <div class="bg-[#08324f] text-white px-4 py-3">
+                        <h3 class="font-semibold"><i class="fas fa-map-marked-alt text-yellow-400 mr-2"></i> Report Location</h3>
                     </div>
                     <div class="p-4">
-                        <div id="map"></div>
-                        <a href="https://www.google.com/maps?q=8.3698,124.8634" target="_blank" class="mt-3 block text-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm">
+                        <div id="map" class="rounded-lg border-2 border-gray-200"></div>
+                        <a href="https://www.google.com/maps?q=8.3698,124.8634" target="_blank" class="mt-3 block text-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm transition">
                             <i class="fas fa-external-link-alt mr-2"></i> Open in Google Maps
                         </a>
                     </div>
@@ -260,7 +245,7 @@
                 <!-- Photo Evidence Card -->
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
                     <div class="bg-[#08324f] text-white px-4 py-3 flex items-center justify-between">
-                        <div class="flex items-center gap-2"><i class="fas fa-images text-yellow-400"></i><h3 class="font-semibold">Uploaded Photos</h3></div>
+                        <h3 class="font-semibold"><i class="fas fa-images text-yellow-400 mr-2"></i> Photo Evidence</h3>
                         <span class="bg-yellow-400 text-[#08324f] px-2 py-1 rounded-full text-xs font-bold">3 Photos</span>
                     </div>
                     <div class="p-4">
@@ -272,17 +257,30 @@
                     </div>
                 </div>
 
-                <!-- Report Metadata -->
+                <!-- Report Metadata Card -->
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="bg-[#08324f] text-white px-4 py-3 flex items-center gap-2">
-                        <i class="fas fa-info-circle text-yellow-400"></i>
-                        <h3 class="font-semibold">Submission Details</h3>
+                    <div class="bg-[#08324f] text-white px-4 py-3">
+                        <h3 class="font-semibold"><i class="fas fa-info-circle text-yellow-400 mr-2"></i> Submission Details</h3>
                     </div>
-                    <div class="p-4 space-y-2 text-sm">
-                        <div class="flex justify-between py-2 border-b"><span class="text-gray-600">Report ID:</span><span class="font-mono">RPT-2026-06-10-001</span></div>
-                        <div class="flex justify-between py-2 border-b"><span class="text-gray-600">Submitted:</span><span>2026-06-10 09:30:45</span></div>
-                        <div class="flex justify-between py-2 border-b"><span class="text-gray-600">Device:</span><span>PNP-MOBILE-023</span></div>
-                        <div class="flex justify-between py-2"><span class="text-gray-600">IP Address:</span><span>192.168.1.105</span></div>
+                    <div class="p-4">
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-500">Report ID:</span>
+                                <span class="font-mono font-medium">RPT-2026-06-10-001</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-500">Submitted:</span>
+                                <span>2026-06-10 09:30:45</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-500">Device:</span>
+                                <span class="font-mono">PNP-MOBILE-023</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="text-gray-500">IP Address:</span>
+                                <span class="font-mono">192.168.1.105</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
