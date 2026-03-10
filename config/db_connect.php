@@ -5,10 +5,10 @@
 // =====================================================
 
 // Database configuration
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'pnp_database');
+define('DB_HOST', 'sql300.infinityfree.com');
+define('DB_USER', 'if0_41350743');
+define('DB_PASS', 'pnpofficertrack');
+define('DB_NAME', 'if0_41350743_pnp_database');
 
 // Set Philippine timezone (GLOBAL for the app)
 date_default_timezone_set('Asia/Manila');
