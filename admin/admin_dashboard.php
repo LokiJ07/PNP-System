@@ -296,6 +296,12 @@ $top_officers = $conn->query("
                 </a>
             </li>
 
+           <li class="p-3 rounded hover:bg-[#1e4a6a] cursor-pointer">
+                <a href="activity_logs.php" class="text-white no-underline block">
+                    <i class="fas log mr-3"></i> Activity Logs
+                </a>
+            </li>
+
             <li class="p-3 rounded hover:bg-[#1e4a6a] cursor-pointer mt-5 pt-4 border-t border-[#1e4a6a]">
                 <a href="../logout.php" class="text-white no-underline block">
                     <i class="fas fa-sign-out-alt mr-3"></i> Logout

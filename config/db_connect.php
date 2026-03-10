@@ -8,7 +8,7 @@
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'pnp_manolo_fortich');
+define('DB_NAME', 'pnp_database');
 
 // Set Philippine timezone (GLOBAL for the app)
 date_default_timezone_set('Asia/Manila');
