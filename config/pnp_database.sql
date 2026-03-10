@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 10, 2026 at 01:47 AM
+-- Generation Time: Mar 10, 2026 at 04:39 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.1.25
 
@@ -92,6 +92,15 @@ CREATE TABLE `activity_logs` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `activity_logs`
+--
+
+INSERT INTO `activity_logs` (`log_id`, `user_id`, `action`, `table_name`, `record_id`, `details`, `ip_address`, `created_at`) VALUES
+(1, 1, 'LOGIN', 'users', 1, 'User logged in', '::1', '2026-03-10 00:50:33'),
+(2, 2, 'LOGIN', 'users', 2, 'User logged in', '::1', '2026-03-10 00:53:13'),
+(3, 1, 'LOGOUT', 'users', 1, 'User logged out', '::1', '2026-03-10 03:08:12');
+
 -- --------------------------------------------------------
 
 --
@@ -147,9 +156,9 @@ INSERT INTO `barangays` (`barangay_id`, `barangay_name`, `latitude`, `longitude`
 (5, 'Dalirig', 8.37639600, 124.90117600, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
 (6, 'Damilag', 8.35332400, 124.81329400, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
 (7, 'Dicklum', 8.37223500, 124.84915600, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
-(8, 'Guilang-guilang', 8.45736300, 125.03269600, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
-(9, 'Kalugmanan', 8.27659100, 124.85930300, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
-(10, 'Lindaban', 8.29047500, 124.84833000, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
+(8, 'Guilang-guilang', 8.45752100, 125.04109100, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
+(9, 'Kalugmanan', 8.27723500, 124.86140300, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
+(10, 'Lindaban', 8.28964300, 124.84700500, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
 (11, 'Lingion', 8.40319400, 124.88830300, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
 (12, 'Lunocan', 8.43158700, 124.84030900, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
 (13, 'Maluko', 8.37517300, 124.95558900, 'Manolo Fortich', 'Bukidnon', 1, '2026-03-10 00:47:19'),
@@ -200,7 +209,7 @@ CREATE TABLE `checkpoint_activities` (
 INSERT INTO `checkpoint_activities` (`checkpoint_id`, `user_id`, `barangay_id`, `specific_location`, `checkpoint_date`, `checkpoint_time`, `border_control_ops`, `border_personnel`, `overlapping_ops`, `mobile_checkpoint_ops`, `mobile_personnel`, `tct_ovr_accomplishment`, `arrested_accomplishment`, `accomplishment_description`, `latitude`, `longitude`, `gps_accuracy`, `status`, `admin_remarks`, `submitted_at`, `updated_at`) VALUES
 (1, 2, 21, 'Tankulan National Highway', '2026-03-01', '20:00:00', 15, 8, 0, 5, 4, 3, 1, 'Conducted checkpoint operation. Checked 45 vehicles. Issued 3 TCT/OVR. Apprehended 1 individual for illegal possession.', 8.36637900, 124.86443200, NULL, 'approved', NULL, '2026-03-01 14:00:00', '2026-03-10 00:47:19'),
 (2, 3, 3, 'Alae Boundary', '2026-03-02', '19:30:00', 12, 6, 0, 4, 3, 2, 0, 'Checkpoint operation at municipal boundary. Checked 38 vehicles. Issued 2 TCT/OVR. No arrests.', 8.42239400, 124.81303000, NULL, 'approved', NULL, '2026-03-02 13:30:00', '2026-03-10 00:47:19'),
-(3, 4, 4, 'Dahilayan Entrance', '2026-03-03', '18:00:00', 8, 4, 0, 3, 2, 1, 0, 'Tourist area checkpoint. Checked 25 vehicles. All compliant.', 8.21923800, 124.85209300, NULL, 'pending', NULL, '2026-03-03 12:00:00', '2026-03-10 00:47:19');
+(3, 4, 4, 'Dahilayan Entrance', '2026-03-03', '18:00:00', 8, 4, 0, 3, 2, 1, 0, 'Tourist area checkpoint. Checked 25 vehicles. All compliant.', 8.21923800, 124.85209300, NULL, 'rejected', '', '2026-03-03 12:00:00', '2026-03-10 00:51:47');
 
 --
 -- Triggers `checkpoint_activities`
@@ -240,20 +249,20 @@ CREATE TABLE `notifications` (
 --
 
 INSERT INTO `notifications` (`notification_id`, `user_id`, `type`, `message`, `report_type`, `report_id`, `is_read`, `created_at`) VALUES
-(1, 1, 'new_report', 'New patrol report submitted by PO3 Juan Dela Cruz in Tankulan', 'patrol', 1, 0, '2026-03-10 00:47:19'),
-(2, 1, 'new_report', 'New patrol report submitted by PO3 Juan Dela Cruz in Tankulan', 'patrol', 2, 0, '2026-03-10 00:47:19'),
-(3, 1, 'new_report', 'New patrol report submitted by SPO1 Maria Santos in Alae', 'patrol', 3, 0, '2026-03-10 00:47:19'),
-(4, 1, 'new_report', 'New patrol report submitted by SPO1 Maria Santos in Alae', 'patrol', 4, 0, '2026-03-10 00:47:19'),
-(5, 1, 'new_report', 'New patrol report submitted by PO2 Pedro Reyes in Dahilayan', 'patrol', 5, 0, '2026-03-10 00:47:19'),
-(6, 1, 'new_report', 'New checkpoint report submitted by PO3 Juan Dela Cruz in Tankulan', 'checkpoint', 1, 0, '2026-03-10 00:47:19'),
-(7, 1, 'new_report', 'New checkpoint report submitted by SPO1 Maria Santos in Alae', 'checkpoint', 2, 0, '2026-03-10 00:47:19'),
-(8, 1, 'new_report', 'New checkpoint report submitted by PO2 Pedro Reyes in Dahilayan', 'checkpoint', 3, 0, '2026-03-10 00:47:19'),
-(9, 1, 'new_report', 'New oplan report submitted by PO2 Pedro Reyes in Dahilayan', 'oplan', 1, 0, '2026-03-10 00:47:19'),
-(10, 1, 'new_report', 'New oplan report submitted by PO3 Juan Dela Cruz in Tankulan', 'oplan', 2, 0, '2026-03-10 00:47:19'),
-(11, 1, 'new_report', 'New oplan report submitted by SPO1 Maria Santos in Alae', 'oplan', 3, 0, '2026-03-10 00:47:19'),
+(1, 1, 'new_report', 'New patrol report submitted by PO3 Juan Dela Cruz in Tankulan', 'patrol', 1, 1, '2026-03-10 00:47:19'),
+(2, 1, 'new_report', 'New patrol report submitted by PO3 Juan Dela Cruz in Tankulan', 'patrol', 2, 1, '2026-03-10 00:47:19'),
+(3, 1, 'new_report', 'New patrol report submitted by SPO1 Maria Santos in Alae', 'patrol', 3, 1, '2026-03-10 00:47:19'),
+(4, 1, 'new_report', 'New patrol report submitted by SPO1 Maria Santos in Alae', 'patrol', 4, 1, '2026-03-10 00:47:19'),
+(5, 1, 'new_report', 'New patrol report submitted by PO2 Pedro Reyes in Dahilayan', 'patrol', 5, 1, '2026-03-10 00:47:19'),
+(6, 1, 'new_report', 'New checkpoint report submitted by PO3 Juan Dela Cruz in Tankulan', 'checkpoint', 1, 1, '2026-03-10 00:47:19'),
+(7, 1, 'new_report', 'New checkpoint report submitted by SPO1 Maria Santos in Alae', 'checkpoint', 2, 1, '2026-03-10 00:47:19'),
+(8, 1, 'new_report', 'New checkpoint report submitted by PO2 Pedro Reyes in Dahilayan', 'checkpoint', 3, 1, '2026-03-10 00:47:19'),
+(9, 1, 'new_report', 'New oplan report submitted by PO2 Pedro Reyes in Dahilayan', 'oplan', 1, 1, '2026-03-10 00:47:19'),
+(10, 1, 'new_report', 'New oplan report submitted by PO3 Juan Dela Cruz in Tankulan', 'oplan', 2, 1, '2026-03-10 00:47:19'),
+(11, 1, 'new_report', 'New oplan report submitted by SPO1 Maria Santos in Alae', 'oplan', 3, 1, '2026-03-10 00:47:19'),
 (12, 1, 'new_report', 'New patrol report submitted by PO3 Juan Dela Cruz in Tankulan', 'patrol', 1, 1, '2026-03-01 01:35:00'),
 (13, 1, 'new_report', 'New checkpoint report submitted by PO3 Juan Dela Cruz in Tankulan', 'checkpoint', 1, 1, '2026-03-01 14:00:00'),
-(14, 1, 'new_report', 'New oplan report submitted by PO2 Pedro Reyes in Dahilayan', 'oplan', 1, 0, '2026-03-01 15:30:00');
+(14, 1, 'new_report', 'New oplan report submitted by PO2 Pedro Reyes in Dahilayan', 'oplan', 1, 1, '2026-03-01 15:30:00');
 
 -- --------------------------------------------------------
 
@@ -364,7 +373,7 @@ INSERT INTO `patrol_activities` (`patrol_id`, `user_id`, `barangay_id`, `patrol_
 (1, 2, 21, 'Foot Patrol', 'Public Market, Tankulan', '2026-03-01', '09:30:00', 4, NULL, 'Conducted routine foot patrol around public market. Assisted 3 senior citizens. Checked 15 establishments for compliance. All businesses following regulations.', 8.36637900, 124.86443200, NULL, 'approved', NULL, '2026-03-01 01:35:00', '2026-03-10 00:47:19'),
 (2, 2, 21, 'Mobile Patrol', 'National Highway, Tankulan', '2026-03-02', '14:15:00', 3, 'MCS-101', 'Patrolled national highway. Issued 2 traffic citations for illegal parking. No major incidents.', 8.36637900, 124.86443200, NULL, 'approved', NULL, '2026-03-02 06:20:00', '2026-03-10 00:47:19'),
 (3, 3, 3, 'Foot Patrol', 'Alae Proper', '2026-03-01', '10:00:00', 2, NULL, 'Foot patrol around Alae commercial area. Checked 10 establishments. All compliant.', 8.42239400, 124.81303000, NULL, 'approved', NULL, '2026-03-01 02:05:00', '2026-03-10 00:47:19'),
-(4, 3, 3, 'Mobile Patrol', 'Alae Highway', '2026-03-03', '08:45:00', 3, 'MCS-102', 'Mobile patrol along Alae highway. No incidents reported.', 8.42239400, 124.81303000, NULL, 'pending', NULL, '2026-03-03 00:50:00', '2026-03-10 00:47:19'),
+(4, 3, 3, 'Mobile Patrol', 'Alae Highway', '2026-03-03', '08:45:00', 3, 'MCS-102', 'Mobile patrol along Alae highway. No incidents reported.', 8.42239400, 124.81303000, NULL, 'rejected', '', '2026-03-03 00:50:00', '2026-03-10 00:51:56'),
 (5, 4, 4, 'Motorcycle Patrol', 'Dahilayan Forest Park', '2026-03-02', '15:30:00', 2, 'MC-001', 'Motorcycle patrol around tourist area. Assisted 2 tourists. No issues.', 8.21923800, 124.85209300, NULL, 'approved', NULL, '2026-03-02 07:35:00', '2026-03-10 00:47:19');
 
 --
@@ -439,8 +448,8 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `badge_number`, `rank`, `first_name`, `last_name`, `middle_name`, `email`, `password`, `profile_pic`, `contact_number`, `birthdate`, `gender`, `civil_status`, `address`, `emergency_contact_name`, `emergency_contact_number`, `station`, `unit`, `role`, `date_hired`, `account_status`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 'ADMIN-001', 'PMAJ', 'Admin', 'User', NULL, 'admin@pnp.gov.ph', 'admin123', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Manolo Fortich MPS', 'Patrol Unit', 'admin', '2020-01-01', 'active', NULL, '2026-03-10 00:47:19', '2026-03-10 00:47:19'),
-(2, 'PNP-2024-0123', 'PO3', 'Juan', 'Dela Cruz', NULL, 'juan.delacruz@pnp.gov.ph', 'password123', NULL, '0912-345-6789', '1990-03-15', 'Male', 'Married', 'Poblacion, Tankulan, Manolo Fortich', 'Maria Dela Cruz', '0918-765-4321', 'Manolo Fortich MPS', 'Patrol Unit', 'user', '2020-01-15', 'active', NULL, '2026-03-10 00:47:19', '2026-03-10 00:47:19'),
+(1, 'ADMIN-001', 'PMAJ', 'Admin', 'User', NULL, 'admin@pnp.gov.ph', '$2y$10$lSORDmWp7cnwDExxO9sBP.LCG8V/7tXhH6V65z3/XhQcNeN1dR6Kq', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Manolo Fortich MPS', 'Patrol Unit', 'admin', '2020-01-01', 'active', NULL, '2026-03-10 00:47:19', '2026-03-10 00:49:56'),
+(2, 'PNP-2024-0123', 'PO3', 'Juan', 'Dela Cruz', NULL, 'juan.delacruz@pnp.gov.ph', '$2y$10$2hBweWjiikm6sYr6rELznugFsHIKnZwEIQG5WqehwFqwoyJyyg3kO', NULL, '0912-345-6789', '1990-03-15', 'Male', 'Married', 'Poblacion, Tankulan, Manolo Fortich', 'Maria Dela Cruz', '0918-765-4321', 'Manolo Fortich MPS', 'Patrol Unit', 'user', '2020-01-15', 'active', NULL, '2026-03-10 00:47:19', '2026-03-10 00:50:24'),
 (3, 'PNP-2024-0124', 'SPO1', 'Maria', 'Santos', NULL, 'maria.santos@pnp.gov.ph', 'password123', NULL, '0923-456-7890', '1988-07-22', 'Female', 'Single', 'Alae, Manolo Fortich', 'Pedro Santos', '0929-876-5432', 'Manolo Fortich MPS', 'Checkpoint Unit', 'user', '2018-05-10', 'active', NULL, '2026-03-10 00:47:19', '2026-03-10 00:47:19'),
 (4, 'PNP-2024-0125', 'PO2', 'Pedro', 'Reyes', NULL, 'pedro.reyes@pnp.gov.ph', 'password123', NULL, '0934-567-8901', '1992-11-08', 'Male', 'Single', 'Dahilayan, Manolo Fortich', 'Ana Reyes', '0938-765-4321', 'Manolo Fortich MPS', 'Oplan Unit', 'user', '2021-03-20', 'active', NULL, '2026-03-10 00:47:19', '2026-03-10 00:47:19');
 
@@ -551,7 +560,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `activity_logs`
 --
 ALTER TABLE `activity_logs`
-  MODIFY `log_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `log_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `activity_photos`
