@@ -1,8 +1,7 @@
 <?php
 // =====================================================
 // FILE: user/user_dashboard.php
-// PURPOSE: User dashboard with profile update and picture upload
-// FIXED: Profile picture upload now working
+// PURPOSE: User dashboard focused on activity reporting
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
@@ -14,118 +13,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
-
-// Handle profile update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
-    $contact_number = $_POST['contact_number'] ?? '';
-    $address = $_POST['address'] ?? '';
-    $emergency_contact = $_POST['emergency_contact'] ?? '';
-    $emergency_number = $_POST['emergency_number'] ?? '';
-    
-    // Handle profile picture upload
-    $profile_pic_path = null;
-    if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] === UPLOAD_ERR_OK) {
-        $file = $_FILES['profile_pic'];
-        $file_size = $file['size'] / (1024 * 1024); // Size in MB
-        
-        if ($file_size <= 5) { // Max 5MB for profile pics
-            $upload_dir = '../uploads/profiles/';
-            if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
-            }
-            
-            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = 'profile_' . $user_id . '_' . time() . '.' . $extension;
-            $filepath = $upload_dir . $filename;
-            $relative_path = 'uploads/profiles/' . $filename; // Path to store in database
-            
-            if (move_uploaded_file($file['tmp_name'], $filepath)) {
-                $profile_pic_path = $relative_path;
-                
-                // Delete old profile picture if exists
-                $old_pic = $conn->query("SELECT profile_pic FROM users WHERE user_id = $user_id")->fetch_assoc();
-                if ($old_pic && $old_pic['profile_pic'] && file_exists('../' . $old_pic['profile_pic'])) {
-                    unlink('../' . $old_pic['profile_pic']);
-                }
-            }
-        } else {
-            $_SESSION['error'] = 'Profile picture must be less than 5MB';
-            header('Location: user_dashboard.php');
-            exit();
-        }
-    }
-    
-    // Update user information
-    if ($profile_pic_path) {
-        $update_stmt = $conn->prepare("
-            UPDATE users SET 
-                contact_number = ?, address = ?,
-                emergency_contact_name = ?, emergency_contact_number = ?,
-                profile_pic = ?
-            WHERE user_id = ?
-        ");
-        $update_stmt->bind_param("sssssi", 
-            $contact_number, $address,
-            $emergency_contact, $emergency_number, $profile_pic_path, $user_id
-        );
-    } else {
-        $update_stmt = $conn->prepare("
-            UPDATE users SET 
-                contact_number = ?, address = ?,
-                emergency_contact_name = ?, emergency_contact_number = ?
-            WHERE user_id = ?
-        ");
-        $update_stmt->bind_param("ssssi", 
-            $contact_number, $address,
-            $emergency_contact, $emergency_number, $user_id
-        );
-    }
-    
-    if ($update_stmt->execute()) {
-        $_SESSION['success'] = 'Profile updated successfully';
-    } else {
-        $_SESSION['error'] = 'Failed to update profile: ' . $conn->error;
-    }
-    $update_stmt->close();
-    
-    header('Location: user_dashboard.php');
-    exit();
-}
-
-// Handle password change
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
-    $current_password = $_POST['current_password'] ?? '';
-    $new_password = $_POST['new_password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
-    
-    // Verify current password
-    $check_stmt = $conn->prepare("SELECT password FROM users WHERE user_id = ?");
-    $check_stmt->bind_param("i", $user_id);
-    $check_stmt->execute();
-    $result = $check_stmt->get_result();
-    $user_data = $result->fetch_assoc();
-    
-    if ($current_password !== $user_data['password']) {
-        $_SESSION['error'] = 'Current password is incorrect';
-    } elseif (strlen($new_password) < 6) {
-        $_SESSION['error'] = 'New password must be at least 6 characters';
-    } elseif ($new_password !== $confirm_password) {
-        $_SESSION['error'] = 'New passwords do not match';
-    } else {
-        $update_stmt = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
-        $update_stmt->bind_param("si", $new_password, $user_id);
-        if ($update_stmt->execute()) {
-            $_SESSION['success'] = 'Password changed successfully';
-        } else {
-            $_SESSION['error'] = 'Failed to change password';
-        }
-        $update_stmt->close();
-    }
-    $check_stmt->close();
-    
-    header('Location: user_dashboard.php');
-    exit();
-}
 
 // Get user information from database
 $stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ?");
@@ -223,16 +110,31 @@ $current_date = date('Y-m-d');
 $current_time = date('H:i');
 
 // Format dates
-$last_login = $user['last_login'] ? date('F d, Y h:i A', strtotime($user['last_login'])) : 'Never logged in';
-$member_since = $user['date_hired'] ? date('F d, Y', strtotime($user['date_hired'])) : 'Not specified';
+if (!empty($user['last_login'])) {
+    $last_login_timestamp = strtotime($user['last_login']);
+    $last_login_formatted = date('F d, Y h:i A', $last_login_timestamp);
+    
+    $today_start = strtotime('today midnight');
+    $yesterday_start = strtotime('yesterday midnight');
+    
+    if ($last_login_timestamp >= $today_start) {
+        $last_login = 'Today, ' . date('h:i A', $last_login_timestamp);
+    } elseif ($last_login_timestamp >= $yesterday_start) {
+        $last_login = 'Yesterday, ' . date('h:i A', $last_login_timestamp);
+    } else {
+        $last_login = $last_login_formatted;
+    }
+} else {
+    $last_login = 'First login';
+}
 
-// Default profile picture if none
-$profile_pic = !empty($user['profile_pic']) ? '../' . $user['profile_pic'] : '../image/default-avatar.png';
-
-// Create default avatar if it doesn't exist
-if (!file_exists('../image/default-avatar.png')) {
-    // You can create a default avatar or use a placeholder
+// Default profile picture
+if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
+    $profile_pic = '../' . $user['profile_pic'];
+    $profile_pic_version = '?v=' . filemtime('../' . $user['profile_pic']);
+} else {
     $profile_pic = 'https://ui-avatars.com/api/?name=' . urlencode($user['first_name'] . '+' . $user['last_name']) . '&size=100&background=1f6fb2&color=fff';
+    $profile_pic_version = '';
 }
 ?>
 
@@ -247,10 +149,13 @@ if (!file_exists('../image/default-avatar.png')) {
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Leaflet CSS (for mapping) -->
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Leaflet JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Additional Leaflet plugins for better map controls -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <style>
         #map {
             height: 400px;
@@ -288,15 +193,6 @@ if (!file_exists('../image/default-avatar.png')) {
             70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
             100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
-        .dropdown-content { 
-            display: none; 
-        }
-        .dropdown.active .dropdown-content { 
-            display: block; 
-        }
-        .rotate-180 { 
-            transform: rotate(180deg); 
-        }
         @media (max-width: 640px) {
             .sidebar-mobile {
                 position: fixed;
@@ -314,147 +210,34 @@ if (!file_exists('../image/default-avatar.png')) {
             min-height: 44px;
             min-width: 44px;
         }
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-        .modal.active {
-            display: flex;
-        }
-        .modal-content {
+        /* Map layer control styling */
+        .map-layer-control {
             background: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
+            padding: 8px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            margin: 10px;
         }
-        .profile-avatar {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 4px solid #ffc107;
+        .map-layer-control label {
+            display: block;
+            margin: 5px 0;
+            font-size: 12px;
+            cursor: pointer;
         }
-        .sidebar-avatar {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid #ffc107;
-            margin: 0 auto;
+        .map-layer-control input {
+            margin-right: 5px;
+        }
+        .map-scale-control {
+            background: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            margin: 10px;
+            font-size: 11px;
         }
     </style>
 </head>
 <body class="flex flex-col md:flex-row bg-[#0a3d62] min-h-screen">
-
-    <!-- Edit Profile Modal -->
-    <div id="editProfileModal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold text-[#08324f]">Edit Profile</h3>
-                <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times text-2xl"></i>
-                </button>
-            </div>
-            
-            <form method="POST" enctype="multipart/form-data" class="space-y-4">
-                <input type="hidden" name="update_profile" value="1">
-                
-                <!-- Profile Picture Upload -->
-                <div class="text-center mb-4">
-                    <div class="relative inline-block">
-                        <img id="profilePreview" src="<?php echo $profile_pic; ?>" class="profile-avatar" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name=<?php echo urlencode($user['first_name'].'+'.$user['last_name']); ?>&size=100&background=1f6fb2&color=fff'">
-                        <label for="profile_pic" class="absolute bottom-0 right-0 bg-[#1f6fb2] text-white p-2 rounded-full cursor-pointer hover:bg-[#0a3d62]">
-                            <i class="fas fa-camera"></i>
-                        </label>
-                        <input type="file" id="profile_pic" name="profile_pic" accept="image/*" class="hidden" onchange="previewImage(this)">
-                    </div>
-                    <p class="text-xs text-gray-500 mt-2">Max size: 5MB. JPG, PNG only</p>
-                </div>
-                
-                <div class="grid grid-cols-1 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
-                        <input type="text" name="contact_number" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>" class="w-full p-2 border border-gray-300 rounded-lg">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                        <textarea name="address" rows="2" class="w-full p-2 border border-gray-300 rounded-lg"><?php echo htmlspecialchars($user['address'] ?? ''); ?></textarea>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Name</label>
-                        <input type="text" name="emergency_contact" value="<?php echo htmlspecialchars($user['emergency_contact_name'] ?? ''); ?>" class="w-full p-2 border border-gray-300 rounded-lg">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Number</label>
-                        <input type="text" name="emergency_number" value="<?php echo htmlspecialchars($user['emergency_contact_number'] ?? ''); ?>" class="w-full p-2 border border-gray-300 rounded-lg">
-                    </div>
-                </div>
-                
-                <div class="flex gap-3 justify-end mt-6">
-                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-[#1f6fb2] text-white rounded-lg hover:bg-[#0a3d62]">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Change Password Modal -->
-    <div id="changePasswordModal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold text-[#08324f]">Change Password</h3>
-                <button onclick="closePasswordModal()" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times text-2xl"></i>
-                </button>
-            </div>
-            
-            <form method="POST" class="space-y-4">
-                <input type="hidden" name="change_password" value="1">
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-                    <input type="password" name="current_password" required class="w-full p-2 border border-gray-300 rounded-lg">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                    <input type="password" name="new_password" required class="w-full p-2 border border-gray-300 rounded-lg">
-                    <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-                    <input type="password" name="confirm_password" required class="w-full p-2 border border-gray-300 rounded-lg">
-                </div>
-                
-                <div class="flex gap-3 justify-end mt-6">
-                    <button type="button" onclick="closePasswordModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Change Password</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <!-- Mobile Menu Button -->
     <button id="mobileMenuBtn" class="md:hidden fixed top-4 left-4 z-50 bg-[#08324f] text-white p-3 rounded-lg shadow-lg">
@@ -475,35 +258,21 @@ if (!file_exists('../image/default-avatar.png')) {
             <h2 class="text-lg md:text-xl font-semibold">PNP User</h2>
         </div>
 
-        <!-- User Profile Section - UPDATED with profile picture -->
+        <!-- User Profile Section -->
         <div class="bg-gradient-to-b from-[#0a3d62] to-[#08324f] p-5 rounded-xl mb-6 text-center border border-[#1a4b6d] shadow-lg">
             <div class="relative mx-auto w-24 h-24 mb-3">
-                <img src="<?php echo $profile_pic; ?>" class="w-full h-full rounded-full object-cover border-3 border-yellow-400 shadow-lg" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name=<?php echo urlencode($user['first_name'].'+'.$user['last_name']); ?>&size=100&background=1f6fb2&color=fff'">
+                <img src="<?php echo $profile_pic . $profile_pic_version; ?>" class="w-full h-full rounded-full object-cover border-3 border-yellow-400 shadow-lg" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name=<?php echo urlencode($user['first_name'].'+'.$user['last_name']); ?>&size=100&background=1f6fb2&color=fff'">
                 <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
             </div>
             
             <h3 class="text-lg font-bold text-yellow-400"><?php echo $user['rank'] . ' ' . $user['first_name'] . ' ' . $user['last_name']; ?></h3>
             <p class="text-xs text-gray-300 mb-2">Badge: <?php echo $user['badge_number']; ?></p>
             
-            <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
-                <div class="bg-[#0a3d62] p-2 rounded">
-                    <p class="text-gray-400">Rank</p>
-                    <p class="font-semibold text-white"><?php echo $user['rank']; ?></p>
-                </div>
-                <div class="bg-[#0a3d62] p-2 rounded">
-                    <p class="text-gray-400">Station</p>
-                    <p class="font-semibold text-white">MPS</p>
-                </div>
-            </div>
-            
-            <!-- Profile Actions -->
-            <div class="mt-4 flex justify-center gap-2">
-                <button onclick="openEditModal()" class="bg-[#1f6fb2] text-white text-xs px-3 py-1 rounded-full hover:bg-[#0a3d62] transition">
-                    <i class="fas fa-edit mr-1"></i> Edit Profile
-                </button>
-                <button onclick="openPasswordModal()" class="bg-yellow-500 text-white text-xs px-3 py-1 rounded-full hover:bg-yellow-600 transition">
-                    <i class="fas fa-key mr-1"></i> Change Password
-                </button>
+            <!-- Settings Button -->
+            <div class="mt-4">
+                <a href="settings.php" class="inline-block bg-[#1f6fb2] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#0a3d62] transition w-full">
+                    <i class="fas fa-cog mr-2"></i> Settings
+                </a>
             </div>
         </div>
 
@@ -512,6 +281,18 @@ if (!file_exists('../image/default-avatar.png')) {
             <li class="p-3 rounded-lg bg-[#0a3d62] border-l-4 border-yellow-400 hover:bg-[#1f6fb2] transition">
                 <a href="user_dashboard.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-tachometer-alt mr-3 w-5 text-yellow-400"></i> Dashboard
+                </a>
+            </li>
+            
+            <li class="p-3 rounded-lg hover:bg-[#1f6fb2] transition">
+                <a href="my_reports.php" class="text-white no-underline block text-sm md:text-base font-medium">
+                    <i class="fas fa-file-alt mr-3 w-5"></i> My Reports
+                </a>
+            </li>
+            
+            <li class="p-3 rounded-lg hover:bg-[#1f6fb2] transition">
+                <a href="settings.php" class="text-white no-underline block text-sm md:text-base font-medium">
+                    <i class="fas fa-cog mr-3 w-5"></i> Settings
                 </a>
             </li>
             
@@ -551,7 +332,10 @@ if (!file_exists('../image/default-avatar.png')) {
             <div class="ml-10 md:ml-0">
                 <h2 class="text-xl md:text-2xl font-bold text-[#08324f]">User Dashboard</h2>
                 <p class="text-xs md:text-sm text-gray-600 mt-1">Welcome back, <?php echo $user['first_name']; ?></p>
-                <p class="text-xs text-gray-500 mt-1"><i class="far fa-clock mr-1"></i> Last login: <?php echo $last_login; ?></p>
+                <div class="flex items-center gap-2 mt-1">
+                    <i class="far fa-clock text-xs text-gray-400"></i>
+                    <p class="text-xs text-gray-500">Last login: <span class="font-medium text-[#1f6fb2]"><?php echo $last_login; ?></span></p>
+                </div>
             </div>
             <div class="flex flex-wrap gap-2 w-full sm:w-auto">
                 <div class="bg-green-100 text-green-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold flex items-center">
@@ -563,32 +347,7 @@ if (!file_exists('../image/default-avatar.png')) {
             </div>
         </div>
 
-        <!-- Contact Information Card -->
-        <div class="bg-white p-4 rounded-lg shadow-md mb-4">
-            <h3 class="text-lg font-semibold text-[#08324f] mb-3 flex items-center gap-2">
-                <i class="fas fa-address-card text-yellow-500"></i> My Contact Information
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <p class="text-xs text-gray-500">Contact Number</p>
-                    <p class="font-medium"><?php echo $user['contact_number'] ?? 'Not specified'; ?></p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500">Address</p>
-                    <p class="font-medium"><?php echo $user['address'] ?? 'Not specified'; ?></p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500">Emergency Contact</p>
-                    <p class="font-medium"><?php echo $user['emergency_contact_name'] ?? 'Not specified'; ?></p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500">Emergency Number</p>
-                    <p class="font-medium"><?php echo $user['emergency_contact_number'] ?? 'Not specified'; ?></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Map Section -->
+        <!-- Map Section with Enhanced Controls -->
         <div class="bg-white p-3 md:p-5 rounded-lg shadow-md mb-4 md:mb-6">
             <h3 class="text-base md:text-lg font-semibold text-[#08324f] mb-3 md:mb-4 flex items-center">
                 <i class="fas fa-map-marked-alt mr-2 text-yellow-500 text-lg md:text-xl"></i> 
@@ -596,7 +355,7 @@ if (!file_exists('../image/default-avatar.png')) {
             </h3>
             
             <div class="flex flex-col lg:flex-row gap-3 md:gap-4 mb-3 md:mb-4">
-                <div class="w-full lg:w-1/2">
+                <div class="w-full lg:w-1/3">
                     <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Select Barangay</label>
                     <select id="barangaySelect" class="w-full p-2 md:p-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]" onchange="zoomToBarangay(this)">
                         <option value="">-- Select Barangay --</option>
@@ -611,7 +370,17 @@ if (!file_exists('../image/default-avatar.png')) {
                     </select>
                 </div>
 
-                <div class="w-full lg:w-1/2 flex flex-wrap gap-2 items-end">
+                <div class="w-full lg:w-1/3">
+                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Map Layer</label>
+                    <select id="mapLayerSelect" class="w-full p-2 md:p-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]" onchange="changeMapLayer(this.value)">
+                        <option value="street">Street Map</option>
+                        <option value="satellite">Satellite</option>
+                        <option value="terrain">Terrain</option>
+                        <option value="hybrid">Satellite with Labels</option>
+                    </select>
+                </div>
+
+                <div class="w-full lg:w-1/3 flex flex-wrap gap-2 items-end">
                     <button type="button" onclick="getUserLocation()" class="flex-1 bg-[#1f6fb2] text-white px-2 md:px-4 py-2 md:py-2.5 rounded-lg hover:bg-[#0a3d62] transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm">
                         <i class="fas fa-location-dot"></i> My Location
                     </button>
@@ -626,6 +395,7 @@ if (!file_exists('../image/default-avatar.png')) {
             <div id="locationInfo" class="mt-3 p-2 md:p-3 bg-blue-50 rounded-lg hidden">
                 <p class="text-xs md:text-sm text-gray-700"><i class="fas fa-map-pin text-[#1f6fb2] mr-2"></i><span id="locationText"></span></p>
                 <p class="text-xs text-gray-500 mt-1" id="coordinatesText"></p>
+                <p class="text-xs text-gray-500 mt-1" id="elevationText"></p>
             </div>
         </div>
 
@@ -665,12 +435,12 @@ if (!file_exists('../image/default-avatar.png')) {
                         <label class="block text-sm font-medium text-gray-700 mb-1">Activity Type *</label>
                         <select name="activity_type" id="activity_type" required class="w-full p-2.5 text-sm border border-gray-300 rounded-lg" onchange="toggleActivityFields(this.value)">
                             <option value="">Select Type</option>
-                            <option value="foot_patrol">Foot Patrol</option>
-                            <option value="mobile_patrol">Mobile Patrol</option>
-                            <option value="motor_patrol">Motorcycle Patrol</option>
+                            <option value="Foot Patrol">Foot Patrol</option>
+                            <option value="Mobile Patrol">Mobile Patrol</option>
+                            <option value="Motorcycle Patrol">Motorcycle Patrol</option>
                             <option value="checkpoint">Checkpoint</option>
-                            <option value="oplan_bakal">Oplan Bakal</option>
-                            <option value="oplan_sita">Oplan Sita</option>
+                            <option value="Oplan Bakal">Oplan Bakal</option>
+                            <option value="Oplan Sita">Oplan Sita</option>
                         </select>
                     </div>
 
@@ -693,14 +463,14 @@ if (!file_exists('../image/default-avatar.png')) {
                                class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
                     </div>
 
-                    <!-- Personnel Field (dynamic) -->
+                    <!-- Personnel Field -->
                     <div id="personnelField" class="hidden md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Number of Personnel *</label>
                         <input type="number" name="personnel_count" min="1" value="1"
                                class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
                     </div>
 
-                    <!-- Vehicle Field (for mobile/motor patrol) -->
+                    <!-- Vehicle Field -->
                     <div id="vehicleField" class="hidden md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle/Unit Number</label>
                         <input type="text" name="vehicle_number" placeholder="e.g., MCS-101" 
@@ -711,22 +481,34 @@ if (!file_exists('../image/default-avatar.png')) {
                 <!-- Checkpoint Fields -->
                 <div id="checkpointFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
                     <h4 class="font-medium text-sm mb-3 text-[#08324f]">Checkpoint Details</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Border Control Ops</label>
                             <input type="number" name="border_control_ops" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Border Personnel</label>
+                            <input type="number" name="border_personnel" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Overlapping Ops</label>
+                            <input type="number" name="overlapping_ops" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Mobile Checkpoint Ops</label>
                             <input type="number" name="mobile_checkpoint_ops" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-600 mb-1">TCT/OVR Accomplishments</label>
-                            <input type="number" name="tct_ovr" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            <label class="block text-xs text-gray-600 mb-1">Mobile Personnel</label>
+                            <input type="number" name="mobile_personnel" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">TCT/OVR Accomplishment</label>
+                            <input type="number" name="tct_ovr_accomplishment" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Arrests Made</label>
-                            <input type="number" name="checkpoint_arrests" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            <input type="number" name="arrested_accomplishment" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                     </div>
                 </div>
@@ -741,7 +523,7 @@ if (!file_exists('../image/default-avatar.png')) {
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Arrests Made</label>
-                            <input type="number" name="oplan_arrests" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            <input type="number" name="arrests_made" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                         <div id="bakalField" class="hidden">
                             <label class="block text-xs text-gray-600 mb-1">Firearms Seized</label>
@@ -762,10 +544,13 @@ if (!file_exists('../image/default-avatar.png')) {
                               placeholder="Describe in detail what you accomplished during this activity..."></textarea>
                 </div>
 
-                <!-- Photo Upload -->
+                <!-- Multiple Photo Upload -->
                 <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Upload Photo Evidence</label>
-                    <input type="file" name="photo" accept="image/*" class="w-full p-2 border border-gray-300 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Upload Photo Evidence (Max 5 photos, up to 15MB total)</label>
+                    <input type="file" name="photos[]" multiple accept="image/*" 
+                           class="w-full p-2 border border-gray-300 rounded-lg"
+                           onchange="validatePhotoUpload(this)">
+                    <p class="text-xs text-gray-500 mt-1" id="photoUploadMessage"></p>
                 </div>
 
                 <!-- Submit Button -->
@@ -857,53 +642,40 @@ if (!file_exists('../image/default-avatar.png')) {
         if (overlay) overlay.addEventListener('click', closeMobileMenu);
         window.addEventListener('resize', function() { if (window.innerWidth >= 768) closeMobileMenu(); });
 
-        // Modal Functions
-        function openEditModal() {
-            document.getElementById('editProfileModal').classList.add('active');
-        }
-
-        function closeEditModal() {
-            document.getElementById('editProfileModal').classList.remove('active');
-        }
-
-        function openPasswordModal() {
-            document.getElementById('changePasswordModal').classList.add('active');
-        }
-
-        function closePasswordModal() {
-            document.getElementById('changePasswordModal').classList.remove('active');
-        }
-
-        // Image preview
-        function previewImage(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('profilePreview').src = e.target.result;
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        // Close modals when clicking outside
-        window.addEventListener('click', function(event) {
-            const editModal = document.getElementById('editProfileModal');
-            const passwordModal = document.getElementById('changePasswordModal');
-            
-            if (event.target === editModal) {
-                editModal.classList.remove('active');
-            }
-            if (event.target === passwordModal) {
-                passwordModal.classList.remove('active');
-            }
-        });
-
         // Map Variables
         let map;
         let marker;
         let userMarker;
         let currentLat = 8.366379;
         let currentLng = 124.864432;
+        let currentLayer = 'street';
+        
+        // Map layer definitions
+        const mapLayers = {
+            street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                maxZoom: 19
+            }),
+            terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: 'Map data: &copy; <a href="https://www.opentopomap.org">OpenTopoMap</a> contributors',
+                maxZoom: 17
+            }),
+            hybrid: L.layerGroup([
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri',
+                    maxZoom: 19
+                }),
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap',
+                    maxZoom: 19,
+                    opacity: 0.5
+                })
+            ])
+        };
 
         // Barangay coordinates from PHP
         const barangayCoords = {
@@ -927,7 +699,32 @@ if (!file_exists('../image/default-avatar.png')) {
             setPhilippineDateTime();
         });
 
-        // Function to set Philippine date and time
+        // Photo Upload Validation
+        function validatePhotoUpload(input) {
+            const files = input.files;
+            const messageEl = document.getElementById('photoUploadMessage');
+            let totalSize = 0;
+            
+            if (files.length > 5) {
+                messageEl.innerHTML = '<span class="text-red-500">Maximum 5 photos allowed</span>';
+                input.value = '';
+                return;
+            }
+            
+            for (let i = 0; i < files.length; i++) {
+                totalSize += files[i].size;
+            }
+            
+            const totalSizeMB = totalSize / (1024 * 1024);
+            
+            if (totalSizeMB > 15) {
+                messageEl.innerHTML = '<span class="text-red-500">Total file size must be less than 15MB</span>';
+                input.value = '';
+            } else {
+                messageEl.innerHTML = `<span class="text-green-500">Selected ${files.length} file(s) (${totalSizeMB.toFixed(2)}MB)</span>`;
+            }
+        }
+
         function setPhilippineDateTime() {
             const now = new Date();
             const phTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
@@ -949,11 +746,27 @@ if (!file_exists('../image/default-avatar.png')) {
             if (!document.getElementById('map')) return;
             
             let zoomLevel = window.innerWidth < 540 ? 11 : 12;
-            map = L.map('map').setView([currentLat, currentLng], zoomLevel);
             
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap',
-                maxZoom: 19
+            // Create map with default street layer
+            map = L.map('map', {
+                layers: [mapLayers.street]
+            }).setView([currentLat, currentLng], zoomLevel);
+
+            // Add scale control
+            L.control.scale({ imperial: false, metric: true }).addTo(map);
+
+            // Add geocoder control (search)
+            L.Control.geocoder({
+                defaultMarkGeocode: false,
+                placeholder: 'Search location...',
+                errorMessage: 'Location not found',
+                showResultIcons: true
+            }).on('markgeocode', function(e) {
+                const latlng = e.geocode.center;
+                map.setView(latlng, 16);
+                placeMarker(latlng.lat, latlng.lng);
+                reverseGeocode(latlng.lat, latlng.lng);
+                findNearestBarangay(latlng.lat, latlng.lng);
             }).addTo(map);
 
             map.on('click', function(e) {
@@ -965,6 +778,30 @@ if (!file_exists('../image/default-avatar.png')) {
             window.addEventListener('orientationchange', function() {
                 setTimeout(() => map.invalidateSize(), 200);
             });
+        }
+
+        function changeMapLayer(layerType) {
+            if (!map) return;
+            
+            // Remove all layers
+            map.eachLayer(function(layer) {
+                if (layer instanceof L.TileLayer) {
+                    map.removeLayer(layer);
+                }
+            });
+            
+            // Add selected layer
+            if (layerType === 'street') {
+                mapLayers.street.addTo(map);
+            } else if (layerType === 'satellite') {
+                mapLayers.satellite.addTo(map);
+            } else if (layerType === 'terrain') {
+                mapLayers.terrain.addTo(map);
+            } else if (layerType === 'hybrid') {
+                mapLayers.hybrid.addTo(map);
+            }
+            
+            currentLayer = layerType;
         }
 
         function findNearestBarangay(lat, lng) {
@@ -1010,7 +847,7 @@ if (!file_exists('../image/default-avatar.png')) {
                         html: '<div class="location-marker"></div>',
                         iconSize: [20, 20]
                     })
-                }).addTo(map);
+                }).addTo(map).bindPopup('Selected Location');
             }
             
             document.getElementById('selectedLat').value = lat.toFixed(6);
@@ -1019,14 +856,37 @@ if (!file_exists('../image/default-avatar.png')) {
             document.getElementById('locationInfo').classList.remove('hidden');
             document.getElementById('locationText').innerHTML = `Selected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
             document.getElementById('coordinatesText').innerHTML = `Lat: ${lat.toFixed(6)}, Long: ${lng.toFixed(6)}`;
+            
+            // Try to get elevation data (optional)
+            getElevation(lat, lng);
+        }
+
+        function getElevation(lat, lng) {
+            // Using Open-Elevation API (free, no API key required)
+            fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results && data.results[0]) {
+                        const elevation = data.results[0].elevation;
+                        document.getElementById('elevationText').innerHTML = `Elevation: ${Math.round(elevation)}m`;
+                    }
+                })
+                .catch(() => {
+                    // Silently fail - elevation is optional
+                });
         }
 
         function reverseGeocode(lat, lng) {
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`)
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
                 .then(response => response.json())
                 .then(data => {
                     let locationName = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                     document.getElementById('specificLocation').value = locationName.substring(0, 100);
+                    
+                    // Update marker popup with location name
+                    if (marker) {
+                        marker.bindPopup(locationName.substring(0, 50)).openPopup();
+                    }
                 })
                 .catch(() => {
                     document.getElementById('specificLocation').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -1104,7 +964,14 @@ if (!file_exists('../image/default-avatar.png')) {
             document.getElementById('selectedLng').value = '';
             document.getElementById('selectedBarangayId').value = '';
             document.getElementById('barangaySelect').value = '';
+            document.getElementById('elevationText').innerHTML = '';
             setPhilippineDateTime();
+            
+            // Reset to street layer if changed
+            if (currentLayer !== 'street') {
+                document.getElementById('mapLayerSelect').value = 'street';
+                changeMapLayer('street');
+            }
         }
 
         function toggleActivityFields(activityType) {
@@ -1115,34 +982,29 @@ if (!file_exists('../image/default-avatar.png')) {
             document.getElementById('bakalField').classList.add('hidden');
             document.getElementById('sitaField').classList.add('hidden');
 
-            if (activityType.includes('patrol') || activityType.includes('checkpoint') || activityType.includes('oplan')) {
+            // Show personnel field for patrols and oplans, but NOT for checkpoints
+            if (activityType.includes('Patrol') || activityType.includes('Oplan')) {
                 document.getElementById('personnelField').classList.remove('hidden');
             }
             
-            if (activityType === 'mobile_patrol' || activityType === 'motor_patrol') {
+            if (activityType === 'Mobile Patrol' || activityType === 'Motorcycle Patrol') {
                 document.getElementById('vehicleField').classList.remove('hidden');
             }
             
             if (activityType === 'checkpoint') {
                 document.getElementById('checkpointFields').classList.remove('hidden');
+                // Personnel field is NOT shown for checkpoints
             }
             
-            if (activityType === 'oplan_bakal') {
+            if (activityType === 'Oplan Bakal') {
                 document.getElementById('oplanFields').classList.remove('hidden');
                 document.getElementById('bakalField').classList.remove('hidden');
             }
             
-            if (activityType === 'oplan_sita') {
+            if (activityType === 'Oplan Sita') {
                 document.getElementById('oplanFields').classList.remove('hidden');
                 document.getElementById('sitaField').classList.remove('hidden');
             }
-        }
-
-        function toggleDropdown(element) {
-            const parent = element.closest('.dropdown');
-            parent.classList.toggle('active');
-            const arrow = element.querySelector('.fa-chevron-down');
-            if (arrow) arrow.classList.toggle('rotate-180');
         }
     </script>
 </body>

@@ -232,7 +232,7 @@ $top_officers = $conn->query("
     <div class="w-[240px] h-screen bg-[#08324f] text-white p-5 sticky top-0 overflow-y-auto">
         <div class="flex items-center gap-3 mb-6 pb-3 border-b border-[#1e4a6a]">
             <img src="../image/pnplogo.png" class="w-8 h-8 object-contain" alt="PNP Logo">
-            <h2 class="text-xl font-semibold">PNP Admin</h2>
+            <h2 class="text-xl font-semibold">PNP Operation Office Admin</h2>
         </div>
 
         
