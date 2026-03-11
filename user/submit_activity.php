@@ -1,7 +1,7 @@
-<?php
+   <?php
 // =====================================================
 // FILE: user/submit_activity.php
-// PURPOSE: Handle activity submission with multiple photos
+// PURPOSE: Handle activity submission with all new fields
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
@@ -23,6 +23,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $activity_time = $_POST['activity_time'] ?? '';
     $accomplishment_description = $_POST['accomplishment_description'] ?? '';
     $gps_accuracy = $_POST['gps_accuracy'] ?? null;
+    
+    // Common fields
+    $personnel_count = $_POST['personnel_count'] ?? 1;
+    $vehicle_number = $_POST['vehicle_number'] ?? null;
+    
+    // Violation fields (for patrol, checkpoint, oplan sita)
+    $drinking_violations = $_POST['drinking_violations'] ?? 0;
+    $smoking_violations = $_POST['smoking_violations'] ?? 0;
+    $halfnaked_violations = $_POST['halfnaked_violations'] ?? 0;
+    $curfew_violations = $_POST['curfew_violations'] ?? 0;
+    $vandalism_violations = $_POST['vandalism_violations'] ?? 0;
+    $other_violations = $_POST['other_violations'] ?? 0;
+    $other_violations_desc = $_POST['other_violations_desc'] ?? null;
+    
+    // Disposition fields (for checkpoint and oplan sita)
+    $fixed_count = $_POST['fixed_count'] ?? 0;
+    $fined_count = $_POST['fined_count'] ?? 0;
+    $warned_count = $_POST['warned_count'] ?? 0;
+    $charged_count = $_POST['charged_count'] ?? 0;
+    $community_service = $_POST['community_service'] ?? 0;
+    $disposition_others = $_POST['disposition_others'] ?? null;
+    
+    // Oplan specific fields
+    $arrests_made = $_POST['arrests_made'] ?? 0;
+    $house_visitations = $_POST['house_visitations'] ?? 0;
+    $kontra_boga = $_POST['kontra_boga'] ?? 0;
+    $anti_vaping = $_POST['anti_vaping'] ?? 0;
+    $firearms_seized = $_POST['firearms_seized'] ?? 0;
+    $firearms_crs = $_POST['firearms_crs'] ?? 0;
+    $fas_deposit = $_POST['fas_deposit'] ?? 0;
+    $renewed_fas = $_POST['renewed_fas'] ?? 0;
+    $contraband_kg = $_POST['contraband_kg'] ?? 0;
+    
+    // Checkpoint specific fields
+    $border_control_ops = $_POST['border_control_ops'] ?? 0;
+    $border_personnel = $_POST['border_personnel'] ?? 0;
+    $overlapping_ops = $_POST['overlapping_ops'] ?? 0;
+    $mobile_checkpoint_ops = $_POST['mobile_checkpoint_ops'] ?? 0;
+    $mobile_personnel = $_POST['mobile_personnel'] ?? 0;
+    $tct_ovr_accomplishment = $_POST['tct_ovr_accomplishment'] ?? 0;
+    $arrested_accomplishment = $_POST['arrested_accomplishment'] ?? 0;
     
     // Validation
     $errors = [];
@@ -104,24 +145,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activity_id = null;
         $activity_type_db = '';
         
-        // Determine which table to insert into based on activity type
+        // =========================================
+        // PATROL ACTIVITIES
+        // =========================================
         if (in_array($activity_type, ['Foot Patrol', 'Mobile Patrol', 'Motorcycle Patrol'])) {
-            // Insert into patrol_activities
-            $personnel_count = $_POST['personnel_count'] ?? 1;
-            $vehicle_number = $_POST['vehicle_number'] ?? null;
             
-            // Count: 12 variables + 1 status = 13 total, status is 'approved' in query
             $stmt = $conn->prepare("
                 INSERT INTO patrol_activities (
                     user_id, barangay_id, patrol_type, specific_location, 
                     latitude, longitude, gps_accuracy, personnel_count, vehicle_number,
-                    patrol_date, patrol_time, accomplishment_description, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
+                    patrol_date, patrol_time, accomplishment_description,
+                    drinking_violations, smoking_violations, halfnaked_violations,
+                    curfew_violations, vandalism_violations, other_violations, other_violations_desc,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
             ");
             
-            // 12 variables = 12 type characters
             $stmt->bind_param(
-                "iisssddissss",  // i,i,s,s,s,s,d,d,i,s,s,s = 12 characters
+                "iissssdissssiiiiiiiss", 
                 $user_id, 
                 $barangay_id, 
                 $activity_type, 
@@ -133,7 +174,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $vehicle_number,
                 $activity_date, 
                 $activity_time, 
-                $accomplishment_description
+                $accomplishment_description,
+                $drinking_violations,
+                $smoking_violations,
+                $halfnaked_violations,
+                $curfew_violations,
+                $vandalism_violations,
+                $other_violations,
+                $other_violations_desc
             );
             
             $stmt->execute();
@@ -141,17 +189,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $activity_type_db = 'patrol';
             $stmt->close();
             
+        // =========================================
+        // CHECKPOINT ACTIVITIES (with disposition)
+        // =========================================
         } elseif ($activity_type === 'checkpoint') {
-            // Insert into checkpoint_activities
-            $border_control_ops = $_POST['border_control_ops'] ?? 0;
-            $border_personnel = $_POST['border_personnel'] ?? 0;
-            $overlapping_ops = $_POST['overlapping_ops'] ?? 0;
-            $mobile_checkpoint_ops = $_POST['mobile_checkpoint_ops'] ?? 0;
-            $mobile_personnel = $_POST['mobile_personnel'] ?? 0;
-            $tct_ovr_accomplishment = $_POST['tct_ovr_accomplishment'] ?? 0;
-            $arrested_accomplishment = $_POST['arrested_accomplishment'] ?? 0;
             
-            // Count: 16 variables + 1 status = 17 total, status is 'approved' in query
             $stmt = $conn->prepare("
                 INSERT INTO checkpoint_activities (
                     user_id, barangay_id, specific_location, 
@@ -160,13 +202,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     mobile_checkpoint_ops, mobile_personnel, 
                     tct_ovr_accomplishment, arrested_accomplishment,
                     accomplishment_description, latitude, longitude, gps_accuracy,
+                    drinking_violations, smoking_violations, halfnaked_violations,
+                    curfew_violations, vandalism_violations, other_violations, other_violations_desc,
+                    fixed_count, fined_count, warned_count, charged_count, community_service, disposition_others,
                     status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
             ");
             
-            // 16 variables = 16 type characters
             $stmt->bind_param(
-                "iisssiiiiiiissdd",  // i,i,s,s,s,i,i,i,i,i,i,i,s,s,d,d = 16 characters
+                "iisssiiiiiiissddiiiiiiiiiiiis", 
                 $user_id, 
                 $barangay_id, 
                 $specific_location,
@@ -182,7 +226,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $accomplishment_description, 
                 $latitude, 
                 $longitude, 
-                $gps_accuracy
+                $gps_accuracy,
+                $drinking_violations,
+                $smoking_violations,
+                $halfnaked_violations,
+                $curfew_violations,
+                $vandalism_violations,
+                $other_violations,
+                $other_violations_desc,
+                $fixed_count,
+                $fined_count,
+                $warned_count,
+                $charged_count,
+                $community_service,
+                $disposition_others
             );
             
             $stmt->execute();
@@ -190,27 +247,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $activity_type_db = 'checkpoint';
             $stmt->close();
             
-        } elseif (in_array($activity_type, ['Oplan Bakal', 'Oplan Sita'])) {
-            // Insert into oplan_activities
-            $personnel_count = $_POST['personnel_count'] ?? 1;
-            $operations_count = $_POST['operations_count'] ?? 1;
-            $arrests_made = $_POST['arrests_made'] ?? 0;
-            $firearms_seized = $_POST['firearms_seized'] ?? 0;
-            $contraband_kg = $_POST['contraband_kg'] ?? 0;
+        // =========================================
+        // OPLAN BAKAL (Firearms focus)
+        // =========================================
+        } elseif ($activity_type === 'Oplan Bakal') {
             
-            // Count: 15 variables + 1 status = 16 total, status is 'approved' in query
             $stmt = $conn->prepare("
                 INSERT INTO oplan_activities (
                     user_id, barangay_id, oplan_type, specific_location, 
                     latitude, longitude, gps_accuracy, personnel_count, 
-                    operations_count, arrests_made, firearms_seized, contraband_kg,
-                    oplan_date, oplan_time, accomplishment_description, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
+                    arrests_made, house_visitations,
+                    firearms_seized, firearms_crs, fas_deposit, renewed_fas,
+                    oplan_date, oplan_time, accomplishment_description,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
             ");
             
-            // 15 variables = 15 type characters
             $stmt->bind_param(
-                "iissssdiiddssss",  // i,i,s,s,s,s,d,i,i,d,d,s,s,s,s = 15 characters
+                "iissssdiidddsss", 
                 $user_id, 
                 $barangay_id, 
                 $activity_type, 
@@ -219,10 +273,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $longitude, 
                 $gps_accuracy, 
                 $personnel_count,
-                $operations_count, 
-                $arrests_made, 
-                $firearms_seized, 
+                $arrests_made,
+                $house_visitations,
+                $firearms_seized,
+                $firearms_crs,
+                $fas_deposit,
+                $renewed_fas,
+                $activity_date, 
+                $activity_time, 
+                $accomplishment_description
+            );
+            
+            $stmt->execute();
+            $activity_id = $stmt->insert_id;
+            $activity_type_db = 'oplan';
+            $stmt->close();
+            
+        // =========================================
+        // OPLAN SITA (Ordinance violations focus)
+        // =========================================
+        } elseif ($activity_type === 'Oplan Sita') {
+            
+            $stmt = $conn->prepare("
+                INSERT INTO oplan_activities (
+                    user_id, barangay_id, oplan_type, specific_location, 
+                    latitude, longitude, gps_accuracy, personnel_count, 
+                    arrests_made, contraband_kg, kontra_boga, anti_vaping, house_visitations,
+                    drinking_violations, smoking_violations, halfnaked_violations,
+                    curfew_violations, vandalism_violations, other_violations, other_violations_desc,
+                    fixed_count, fined_count, warned_count, charged_count, community_service, disposition_others,
+                    oplan_date, oplan_time, accomplishment_description,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
+            ");
+            
+            $stmt->bind_param(
+                "iissssdiiddiiiiiiiiiiiiiiisss", 
+                $user_id, 
+                $barangay_id, 
+                $activity_type, 
+                $specific_location,
+                $latitude, 
+                $longitude, 
+                $gps_accuracy, 
+                $personnel_count,
+                $arrests_made,
                 $contraband_kg,
+                $kontra_boga,
+                $anti_vaping,
+                $house_visitations,
+                $drinking_violations,
+                $smoking_violations,
+                $halfnaked_violations,
+                $curfew_violations,
+                $vandalism_violations,
+                $other_violations,
+                $other_violations_desc,
+                $fixed_count,
+                $fined_count,
+                $warned_count,
+                $charged_count,
+                $community_service,
+                $disposition_others,
                 $activity_date, 
                 $activity_time, 
                 $accomplishment_description
@@ -250,7 +362,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Commit transaction
         $conn->commit();
-        $_SESSION['success'] = "Activity reported successfully!";
+        $_SESSION['success'] = "Activity reported successfully! (Auto-Approved)";
         
     } catch (Exception $e) {
         // Rollback transaction on error

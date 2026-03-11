@@ -1,7 +1,7 @@
 <?php
 // =====================================================
 // FILE: user/user_dashboard.php
-// PURPOSE: User dashboard focused on activity reporting
+// PURPOSE: User dashboard with updated Oplan Sita/Bakal fields
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// Get user information from database
+// Get user information
 $stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -26,13 +26,12 @@ if (!$user) {
     exit();
 }
 
-// Get barangays for dropdown
+// Get barangays
 $barangays = $conn->query("SELECT barangay_id, barangay_name, latitude, longitude FROM barangays ORDER BY barangay_name");
 
-// Get user's recent activities
+// Get recent activities
 $recent = [];
 
-// Recent patrols
 $patrols = $conn->query("
     SELECT 'patrol' as type, patrol_type as subtype, specific_location, 
            patrol_date as activity_date, patrol_time as activity_time, status,
@@ -44,7 +43,6 @@ $patrols = $conn->query("
 ");
 while ($row = $patrols->fetch_assoc()) $recent[] = $row;
 
-// Recent checkpoints
 $checkpoints = $conn->query("
     SELECT 'checkpoint' as type, 'Checkpoint' as subtype, specific_location,
            checkpoint_date as activity_date, checkpoint_time as activity_time, status,
@@ -56,7 +54,6 @@ $checkpoints = $conn->query("
 ");
 while ($row = $checkpoints->fetch_assoc()) $recent[] = $row;
 
-// Recent oplans
 $oplans = $conn->query("
     SELECT 'oplan' as type, oplan_type as subtype, specific_location,
            oplan_date as activity_date, oplan_time as activity_time, status,
@@ -68,7 +65,6 @@ $oplans = $conn->query("
 ");
 while ($row = $oplans->fetch_assoc()) $recent[] = $row;
 
-// Sort by most recent
 usort($recent, function($a, $b) {
     return strtotime($b['submitted_at']) - strtotime($a['submitted_at']);
 });
@@ -86,30 +82,24 @@ $stats['checkpoints'] = $result->fetch_assoc()['total'];
 $result = $conn->query("SELECT COUNT(*) as total FROM oplan_activities WHERE user_id = $user_id");
 $stats['oplans'] = $result->fetch_assoc()['total'];
 
-$result = $conn->query("
-    SELECT (
-        SELECT COUNT(*) FROM patrol_activities WHERE user_id = $user_id AND status = 'pending'
-    ) + (
-        SELECT COUNT(*) FROM checkpoint_activities WHERE user_id = $user_id AND status = 'pending'
-    ) + (
-        SELECT COUNT(*) FROM oplan_activities WHERE user_id = $user_id AND status = 'pending'
-    ) as pending
-");
-$stats['pending'] = $result->fetch_assoc()['pending'] ?? 0;
+$stats['total_patrols'] = $stats['patrols'];
+$stats['total_checkpoints'] = $stats['checkpoints'];
+$stats['total_oplans'] = $stats['oplans'];
+$stats['pending'] = 0;
 
 // Store barangays for JavaScript
 $barangay_data = [];
 while ($row = $barangays->fetch_assoc()) {
     $barangay_data[] = $row;
 }
-$barangays->data_seek(0); // Reset pointer
+$barangays->data_seek(0);
 
-// Set Philippine Time (UTC+8)
+// Set Philippine Time
 date_default_timezone_set('Asia/Manila');
 $current_date = date('Y-m-d');
 $current_time = date('H:i');
 
-// Format dates
+// Format last login
 if (!empty($user['last_login'])) {
     $last_login_timestamp = strtotime($user['last_login']);
     $last_login_formatted = date('F d, Y h:i A', $last_login_timestamp);
@@ -128,7 +118,7 @@ if (!empty($user['last_login'])) {
     $last_login = 'First login';
 }
 
-// Default profile picture
+// Profile picture
 if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
     $profile_pic = '../' . $user['profile_pic'];
     $profile_pic_version = '?v=' . filemtime('../' . $user['profile_pic']);
@@ -145,17 +135,18 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <link rel="icon" type="image/png" href="../image/pnplogo.png">
     <title>PNP | User Dashboard</title>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Leaflet JavaScript -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Additional Leaflet plugins for better map controls -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    
+    <!-- Custom CSS -->
     <style>
         #map {
             height: 400px;
@@ -210,30 +201,26 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
             min-height: 44px;
             min-width: 44px;
         }
-        /* Map layer control styling */
-        .map-layer-control {
-            background: white;
-            padding: 8px;
-            border-radius: 4px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            margin: 10px;
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #08324f;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.25rem;
+            border-bottom: 2px solid #ffc107;
         }
-        .map-layer-control label {
-            display: block;
-            margin: 5px 0;
-            font-size: 12px;
-            cursor: pointer;
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
-        .map-layer-control input {
-            margin-right: 5px;
-        }
-        .map-scale-control {
-            background: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            margin: 10px;
-            font-size: 11px;
+        .animate-slideIn {
+            animation: slideIn 0.3s ease forwards;
         }
     </style>
 </head>
@@ -268,7 +255,6 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
             <h3 class="text-lg font-bold text-yellow-400"><?php echo $user['rank'] . ' ' . $user['first_name'] . ' ' . $user['last_name']; ?></h3>
             <p class="text-xs text-gray-300 mb-2">Badge: <?php echo $user['badge_number']; ?></p>
             
-            <!-- Settings Button -->
             <div class="mt-4">
                 <a href="settings.php" class="inline-block bg-[#1f6fb2] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#0a3d62] transition w-full">
                     <i class="fas fa-cog mr-2"></i> Settings
@@ -276,34 +262,29 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
             </div>
         </div>
 
-        <!-- Simple Menu -->
+        <!-- Menu -->
         <ul class="space-y-2">
             <li class="p-3 rounded-lg bg-[#0a3d62] border-l-4 border-yellow-400 hover:bg-[#1f6fb2] transition">
                 <a href="user_dashboard.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-tachometer-alt mr-3 w-5 text-yellow-400"></i> Dashboard
                 </a>
             </li>
-            
             <li class="p-3 rounded-lg hover:bg-[#1f6fb2] transition">
                 <a href="my_reports.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-file-alt mr-3 w-5"></i> My Reports
                 </a>
             </li>
-            
             <li class="p-3 rounded-lg hover:bg-[#1f6fb2] transition">
                 <a href="settings.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-cog mr-3 w-5"></i> Settings
                 </a>
             </li>
-            
             <li class="my-4 border-t border-[#1a4b6d]"></li>
-            
             <li class="p-3 rounded-lg bg-red-600 hover:bg-red-700 transition cursor-pointer">
                 <a href="../logout.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-sign-out-alt mr-3 w-5"></i> Logout
                 </a>
             </li>
-            
             <li class="mt-6 text-center text-xs text-gray-400">
                 <p>PNP Manolo Fortich v2.0</p>
                 <p class="mt-1">© 2026 All Rights Reserved</p>
@@ -314,7 +295,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
     <!-- Main Content -->
     <div class="flex-1 p-3 md:p-6 lg:p-8 bg-[#eef2f6] overflow-y-auto min-h-screen main-content-mobile">
         
-        <!-- Display Session Messages -->
+        <!-- Session Messages -->
         <?php if (isset($_SESSION['success'])): ?>
         <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-lg animate-slideIn">
             <i class="fas fa-check-circle mr-2"></i> <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
@@ -327,7 +308,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
         </div>
         <?php endif; ?>
 
-        <!-- Header with User Info -->
+        <!-- Header -->
         <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm mb-4 md:mb-6 flex flex-col sm:flex-row gap-3 sm:gap-0 justify-between items-start sm:items-center">
             <div class="ml-10 md:ml-0">
                 <h2 class="text-xl md:text-2xl font-bold text-[#08324f]">User Dashboard</h2>
@@ -347,7 +328,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
             </div>
         </div>
 
-        <!-- Map Section with Enhanced Controls -->
+        <!-- Map Section -->
         <div class="bg-white p-3 md:p-5 rounded-lg shadow-md mb-4 md:mb-6">
             <h3 class="text-base md:text-lg font-semibold text-[#08324f] mb-3 md:mb-4 flex items-center">
                 <i class="fas fa-map-marked-alt mr-2 text-yellow-500 text-lg md:text-xl"></i> 
@@ -414,8 +395,8 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                 <p class="text-xl font-bold text-[#08324f]"><?php echo $stats['oplans']; ?></p>
             </div>
             <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-yellow-500">
-                <p class="text-xs text-gray-500">Pending</p>
-                <p class="text-xl font-bold text-[#08324f]"><?php echo $stats['pending']; ?></p>
+                <p class="text-xs text-gray-500">Auto-Approved</p>
+                <p class="text-xl font-bold text-[#08324f]"><?php echo $stats['total_patrols'] + $stats['total_checkpoints'] + $stats['total_oplans']; ?></p>
             </div>
         </div>
 
@@ -478,9 +459,10 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     </div>
                 </div>
 
-                <!-- Checkpoint Fields -->
+                <!-- CHECKPOINT FIELDS -->
                 <div id="checkpointFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
                     <h4 class="font-medium text-sm mb-3 text-[#08324f]">Checkpoint Details</h4>
+                    
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Border Control Ops</label>
@@ -511,27 +493,189 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                             <input type="number" name="arrested_accomplishment" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                     </div>
+                    
+                    <!-- DISPOSITION SECTION -->
+                    <div class="mt-4">
+                        <h5 class="text-xs font-semibold text-gray-600 mb-2">DISPOSITION (Case Outcomes)</h5>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Fixed/Advised</label>
+                                <input type="number" name="fixed_count" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Fined</label>
+                                <input type="number" name="fined_count" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Warned/Released</label>
+                                <input type="number" name="warned_count" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Charged</label>
+                                <input type="number" name="charged_count" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Community Service</label>
+                                <input type="number" name="community_service" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div class="md:col-span-3">
+                                <label class="block text-xs text-gray-600 mb-1">Others (Specify)</label>
+                                <input type="text" name="disposition_others" placeholder="e.g., Transferred" class="w-full p-2 text-sm border rounded">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Oplan Fields -->
-                <div id="oplanFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
-                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Oplan Details</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- OPLAN BAKAL FIELDS -->
+                <div id="oplanBakalFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Oplan Bakal Details (Firearms)</h4>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <div>
-                            <label class="block text-xs text-gray-600 mb-1">Operations Count</label>
-                            <input type="number" name="operations_count" value="1" min="1" class="w-full p-2 text-sm border rounded">
+                            <label class="block text-xs text-gray-600 mb-1">Firearms Seized</label>
+                            <input type="number" name="firearms_seized" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Firearms (CRS)</label>
+                            <input type="number" name="firearms_crs" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">FAS Deposits</label>
+                            <input type="number" name="fas_deposit" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Renewed FAS</label>
+                            <input type="number" name="renewed_fas" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-600 mb-1">Arrests Made</label>
                             <input type="number" name="arrests_made" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
-                        <div id="bakalField" class="hidden">
-                            <label class="block text-xs text-gray-600 mb-1">Firearms Seized</label>
-                            <input type="number" name="firearms_seized" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">House Visitations</label>
+                            <input type="number" name="house_visitations" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
-                        <div id="sitaField" class="hidden">
-                            <label class="block text-xs text-gray-600 mb-1">Contraband (kg)</label>
-                            <input type="number" step="0.01" name="contraband_kg" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                    </div>
+                </div>
+
+                <!-- OPLAN SITA FIELDS -->
+                <div id="oplanSitaFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Oplan Sita Details (Ordinance Violations)</h4>
+                    
+                    <!-- ORDINANCE VIOLATIONS -->
+                    <div class="mb-4">
+                        <h5 class="text-xs font-semibold text-gray-600 mb-2">ORDINANCE VIOLATIONS</h5>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Drinking in Public</label>
+                                <input type="number" name="drinking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Smoking Ban</label>
+                                <input type="number" name="smoking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Half-Naked</label>
+                                <input type="number" name="halfnaked_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Curfew Violations</label>
+                                <input type="number" name="curfew_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Vandalism</label>
+                                <input type="number" name="vandalism_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Other Violations</label>
+                                <input type="number" name="other_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                                <input type="text" name="other_violations_desc" placeholder="Specify" class="w-full p-1 mt-1 text-xs border rounded">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- APPREHENSIONS -->
+                    <div class="mb-4">
+                        <h5 class="text-xs font-semibold text-gray-600 mb-2">APPREHENSIONS</h5>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Arrests Made</label>
+                                <input type="number" name="arrests_made" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Contraband (kg)</label>
+                                <input type="number" step="0.01" name="contraband_kg" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Kontra Boga</label>
+                                <input type="number" name="kontra_boga" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Anti-Vaping OPNs</label>
+                                <input type="number" name="anti_vaping" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- DISPOSITION SECTION -->
+                    <div>
+                        <h5 class="text-xs font-semibold text-gray-600 mb-2">DISPOSITION (Case Outcomes)</h5>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Fixed/Advised</label>
+                                <input type="number" name="fixed_count" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Fined</label>
+                                <input type="number" name="fined_count" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Warned/Released</label>
+                                <input type="number" name="warned_count" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Charged</label>
+                                <input type="number" name="charged_count" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Community Service</label>
+                                <input type="number" name="community_service" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div class="md:col-span-3">
+                                <label class="block text-xs text-gray-600 mb-1">Others (Specify)</label>
+                                <input type="text" name="disposition_others" placeholder="e.g., Transferred" class="w-full p-2 text-sm border rounded">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PATROL VIOLATION FIELDS -->
+                <div id="patrolViolationFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Violations Encountered</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Drinking in Public</label>
+                            <input type="number" name="drinking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Smoking Ban</label>
+                            <input type="number" name="smoking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Half-Naked</label>
+                            <input type="number" name="halfnaked_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Curfew Violations</label>
+                            <input type="number" name="curfew_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Vandalism</label>
+                            <input type="number" name="vandalism_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Other Violations</label>
+                            <input type="number" name="other_violations" value="0" min="0" class="w-full p-2 text-sm border rounded">
                         </div>
                     </div>
                 </div>
@@ -544,7 +688,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                               placeholder="Describe in detail what you accomplished during this activity..."></textarea>
                 </div>
 
-                <!-- Multiple Photo Upload -->
+                <!-- Photo Upload -->
                 <div class="mt-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Upload Photo Evidence (Max 5 photos, up to 15MB total)</label>
                     <input type="file" name="photos[]" multiple accept="image/*" 
@@ -583,13 +727,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                             else echo $activity['subtype'];
                             ?>
                         </span>
-                        <span class="text-xs 
-                            <?php 
-                            echo $activity['status'] == 'approved' ? 'text-green-600' : 
-                                ($activity['status'] == 'pending' ? 'text-yellow-600' : 'text-red-600'); 
-                            ?>">
-                            <?php echo ucfirst($activity['status']); ?>
-                        </span>
+                        <span class="text-xs text-green-600 font-medium">APPROVED</span>
                     </div>
                     <p class="text-sm text-gray-600"><?php echo htmlspecialchars($activity['specific_location']); ?></p>
                     <p class="text-xs text-gray-500 mt-1">
@@ -603,10 +741,11 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
     </div>
 
     <!-- Confirmation Modal -->
+ <!-- Confirmation Modal - IMPROVED VERSION -->
 <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4" onclick="closeModalOnOutsideClick(event)">
-    <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+    <div class="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
         <!-- Modal Header -->
-        <div class="bg-[#08324f] text-white p-4 rounded-t-xl flex justify-between items-center sticky top-0">
+        <div class="bg-[#08324f] text-white p-4 rounded-t-xl flex justify-between items-center sticky top-0 z-10">
             <h3 class="text-lg font-semibold flex items-center">
                 <i class="fas fa-check-circle text-yellow-400 mr-2"></i>
                 Confirm Activity Report
@@ -618,677 +757,288 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
         
         <!-- Modal Body -->
         <div class="p-6">
-            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                <p class="text-sm text-yellow-700">
-                    <i class="fas fa-info-circle mr-2"></i>
-                    Please review your report carefully. Once confirmed, this will be automatically APPROVED.
-                </p>
-            </div>
-            
-            <!-- Summary Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div class="bg-gray-50 p-3 rounded-lg">
-                    <p class="text-xs text-gray-500">Activity Type</p>
-                    <p class="font-semibold" id="confirmActivityType">-</p>
-                </div>
-                <div class="bg-gray-50 p-3 rounded-lg">
-                    <p class="text-xs text-gray-500">Date & Time</p>
-                    <p class="font-semibold" id="confirmDateTime">-</p>
-                </div>
-                <div class="bg-gray-50 p-3 rounded-lg md:col-span-2">
-                    <p class="text-xs text-gray-500">Location</p>
-                    <p class="font-semibold" id="confirmLocation">-</p>
-                    <p class="text-xs text-gray-500 mt-1" id="confirmCoordinates">-</p>
-                </div>
-                <div class="bg-gray-50 p-3 rounded-lg md:col-span-2">
-                    <p class="text-xs text-gray-500">Barangay</p>
-                    <p class="font-semibold" id="confirmBarangay">-</p>
+            <!-- Auto-Approved Notice -->
+            <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
+                <div class="flex items-center">
+                    <i class="fas fa-check-circle text-green-500 text-xl mr-3"></i>
+                    <div>
+                        <p class="text-sm font-medium text-green-800">This report will be automatically APPROVED</p>
+                        <p class="text-xs text-green-600 mt-1">Please review all details below before confirming.</p>
+                    </div>
                 </div>
             </div>
             
-            <!-- Activity Specific Fields -->
-            <div id="confirmPersonnelField" class="hidden mb-4 p-3 bg-blue-50 rounded-lg">
-                <p class="text-xs text-blue-600">Personnel Count: <span class="font-semibold" id="confirmPersonnel">-</span></p>
-            </div>
-            
-            <div id="confirmVehicleField" class="hidden mb-4 p-3 bg-blue-50 rounded-lg">
-                <p class="text-xs text-blue-600">Vehicle Number: <span class="font-semibold" id="confirmVehicle">-</span></p>
-            </div>
-            
-            <!-- Checkpoint Fields -->
-            <div id="confirmCheckpointFields" class="hidden mb-4">
-                <h4 class="font-medium text-sm mb-2 text-[#08324f]">Checkpoint Details</h4>
-                <div class="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg">
-                    <div><span class="text-xs text-gray-500">Border Control Ops:</span> <span class="text-sm font-semibold" id="confirmBorderOps">0</span></div>
-                    <div><span class="text-xs text-gray-500">Border Personnel:</span> <span class="text-sm font-semibold" id="confirmBorderPersonnel">0</span></div>
-                    <div><span class="text-xs text-gray-500">Overlapping Ops:</span> <span class="text-sm font-semibold" id="confirmOverlapping">0</span></div>
-                    <div><span class="text-xs text-gray-500">Mobile Checkpoint Ops:</span> <span class="text-sm font-semibold" id="confirmMobileOps">0</span></div>
-                    <div><span class="text-xs text-gray-500">Mobile Personnel:</span> <span class="text-sm font-semibold" id="confirmMobilePersonnel">0</span></div>
-                    <div><span class="text-xs text-gray-500">TCT/OVR Accomplishment:</span> <span class="text-sm font-semibold" id="confirmTct">0</span></div>
-                    <div><span class="text-xs text-gray-500">Arrests Made:</span> <span class="text-sm font-semibold" id="confirmArrests">0</span></div>
+            <!-- ===== BASIC INFORMATION SECTION ===== -->
+            <div class="mb-6">
+                <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
+                    <i class="fas fa-info-circle text-yellow-500 mr-2"></i> Basic Information
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <p class="text-xs text-gray-500 mb-1">Activity Type</p>
+                        <p class="font-semibold text-gray-800" id="confirmActivityType">-</p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <p class="text-xs text-gray-500 mb-1">Date & Time</p>
+                        <p class="font-semibold text-gray-800" id="confirmDateTime">-</p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg md:col-span-2">
+                        <p class="text-xs text-gray-500 mb-1">Location</p>
+                        <p class="font-semibold text-gray-800" id="confirmLocation">-</p>
+                        <p class="text-xs text-gray-500 mt-1" id="confirmCoordinates">-</p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg md:col-span-2">
+                        <p class="text-xs text-gray-500 mb-1">Barangay</p>
+                        <p class="font-semibold text-gray-800" id="confirmBarangay">-</p>
+                    </div>
                 </div>
             </div>
             
-            <!-- Oplan Fields -->
-            <div id="confirmOplanFields" class="hidden mb-4">
-                <h4 class="font-medium text-sm mb-2 text-[#08324f]">Oplan Details</h4>
-                <div class="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg">
-                    <div><span class="text-xs text-gray-500">Operations Count:</span> <span class="text-sm font-semibold" id="confirmOperations">-</span></div>
-                    <div><span class="text-xs text-gray-500">Arrests Made:</span> <span class="text-sm font-semibold" id="confirmOplanArrests">-</span></div>
-                    <div id="confirmBakalField" class="hidden"><span class="text-xs text-gray-500">Firearms Seized:</span> <span class="text-sm font-semibold" id="confirmFirearms">-</span></div>
-                    <div id="confirmSitaField" class="hidden"><span class="text-xs text-gray-500">Contraband (kg):</span> <span class="text-sm font-semibold" id="confirmContraband">-</span></div>
+            <!-- ===== PERSONNEL & VEHICLE SECTION ===== -->
+            <div id="confirmPersonnelField" class="hidden mb-6">
+                <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
+                    <i class="fas fa-users text-yellow-500 mr-2"></i> Personnel & Vehicle
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <p class="text-xs text-blue-600 mb-1">Number of Personnel</p>
+                        <p class="font-semibold text-gray-800" id="confirmPersonnel">-</p>
+                    </div>
+                    <div id="confirmVehicleField" class="hidden bg-blue-50 p-3 rounded-lg">
+                        <p class="text-xs text-blue-600 mb-1">Vehicle/Unit Number</p>
+                        <p class="font-semibold text-gray-800" id="confirmVehicle">-</p>
+                    </div>
                 </div>
             </div>
             
-            <!-- Accomplishment Description -->
-            <div class="mb-4">
-                <h4 class="font-medium text-sm mb-2 text-[#08324f]">Accomplishment Description</h4>
-                <div class="p-3 bg-gray-50 rounded-lg text-sm" id="confirmDescription">-</div>
+            <!-- ===== CHECKPOINT DETAILS SECTION ===== -->
+            <div id="confirmCheckpointFields" class="hidden mb-6">
+                <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
+                    <i class="fas fa-map-marker-alt text-yellow-500 mr-2"></i> Checkpoint Operations
+                </h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Border Control Ops</p>
+                        <p class="font-semibold" id="confirmBorderOps">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Border Personnel</p>
+                        <p class="font-semibold" id="confirmBorderPersonnel">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Overlapping Ops</p>
+                        <p class="font-semibold" id="confirmOverlapping">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Mobile Ops</p>
+                        <p class="font-semibold" id="confirmMobileOps">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Mobile Personnel</p>
+                        <p class="font-semibold" id="confirmMobilePersonnel">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">TCT/OVR Accomps</p>
+                        <p class="font-semibold" id="confirmTct">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Arrests Made</p>
+                        <p class="font-semibold" id="confirmArrests">0</p>
+                    </div>
+                </div>
             </div>
             
-            <!-- Photos -->
-            <div class="mb-4" id="confirmPhotosSection">
-                <h4 class="font-medium text-sm mb-2 text-[#08324f]">Photos</h4>
-                <div class="p-3 bg-gray-50 rounded-lg text-sm" id="confirmPhotos">No photos uploaded</div>
+            <!-- ===== ORDINANCE VIOLATIONS SECTION ===== -->
+            <div id="confirmOrdinanceSection" class="hidden mb-6">
+                <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
+                    <i class="fas fa-gavel text-yellow-500 mr-2"></i> Ordinance Violations
+                </h4>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Drinking in Public</p>
+                        <p class="font-semibold" id="confirmDrinking">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Smoking Ban</p>
+                        <p class="font-semibold" id="confirmSmoking">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Half-Naked</p>
+                        <p class="font-semibold" id="confirmHalfNaked">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Curfew</p>
+                        <p class="font-semibold" id="confirmCurfew">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Vandalism</p>
+                        <p class="font-semibold" id="confirmVandalism">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Other Violations</p>
+                        <p class="font-semibold" id="confirmOtherViolations">0</p>
+                        <p class="text-xs text-gray-500" id="confirmOtherViolationsDesc"></p>
+                    </div>
+                </div>
+                <div class="mt-2 text-right">
+                    <span class="text-xs font-medium text-gray-600">Total Violations: </span>
+                    <span class="font-bold text-[#08324f]" id="confirmOrdinanceTotal">0</span>
+                </div>
             </div>
             
-            <!-- GPS Accuracy -->
-            <div class="text-xs text-gray-500" id="confirmGps">-</div>
+            <!-- ===== OPLAN DETAILS SECTION ===== -->
+            <div id="confirmOplanFields" class="hidden mb-6">
+                <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
+                    <i class="fas fa-shield-alt text-yellow-500 mr-2"></i> Oplan Details
+                </h4>
+                
+                <!-- Oplan Bakal Specific -->
+                <div id="confirmBakalSummary" class="hidden mb-4">
+                    <p class="text-sm font-medium text-gray-700 mb-2">Firearms and FAS:</p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <p class="text-xs text-gray-500">Firearms Seized</p>
+                            <p class="font-semibold" id="confirmFirearms">0</p>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <p class="text-xs text-gray-500">Firearms (CRS)</p>
+                            <p class="font-semibold" id="confirmFirearmsCRS">0</p>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <p class="text-xs text-gray-500">FAS Deposits</p>
+                            <p class="font-semibold" id="confirmFasDeposit">0</p>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <p class="text-xs text-gray-500">Renewed FAS</p>
+                            <p class="font-semibold" id="confirmRenewedFAS">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Oplan Sita Specific -->
+                <div id="confirmSitaSummary" class="hidden mb-4">
+                    <p class="text-sm font-medium text-gray-700 mb-2">Apprehensions:</p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <p class="text-xs text-gray-500">Kontra Boga</p>
+                            <p class="font-semibold" id="confirmKontraBoga">0</p>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <p class="text-xs text-gray-500">Anti-Vaping OPNs</p>
+                            <p class="font-semibold" id="confirmAntiVaping">0</p>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <p class="text-xs text-gray-500">Contraband (kg)</p>
+                            <p class="font-semibold" id="confirmContraband">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Common Oplan Fields -->
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Arrests Made</p>
+                        <p class="font-semibold" id="confirmOplanArrests">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">House Visitations</p>
+                        <p class="font-semibold" id="confirmHouseVisits">0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ===== DISPOSITION SECTION ===== -->
+            <div id="confirmDispositionSection" class="hidden mb-6">
+                <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
+                    <i class="fas fa-balance-scale text-yellow-500 mr-2"></i> Case Disposition
+                </h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Fixed/Advised</p>
+                        <p class="font-semibold" id="confirmFixed">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Fined</p>
+                        <p class="font-semibold" id="confirmFined">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Warned/Released</p>
+                        <p class="font-semibold" id="confirmWarned">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Charged</p>
+                        <p class="font-semibold" id="confirmCharged">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <p class="text-xs text-gray-500">Community Service</p>
+                        <p class="font-semibold" id="confirmCommunityService">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded-lg md:col-span-3">
+                        <p class="text-xs text-gray-500">Other Disposition</p>
+                        <p class="font-semibold" id="confirmDispositionOthers">None</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ===== ACCOMPLISHMENT DESCRIPTION ===== -->
+            <div class="mb-6">
+                <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
+                    <i class="fas fa-file-alt text-yellow-500 mr-2"></i> Accomplishment Description
+                </h4>
+                <div class="p-4 bg-gray-50 rounded-lg text-sm whitespace-pre-wrap" id="confirmDescription">-</div>
+            </div>
+            
+            <!-- ===== PHOTOS ===== -->
+            <div class="mb-6">
+                <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
+                    <i class="fas fa-camera text-yellow-500 mr-2"></i> Photo Evidence
+                </h4>
+                <div class="p-4 bg-gray-50 rounded-lg text-sm" id="confirmPhotos">No photos uploaded</div>
+            </div>
+            
+            <!-- ===== GPS ACCURACY ===== -->
+            <div class="text-xs text-gray-500 text-right" id="confirmGps"></div>
         </div>
         
         <!-- Modal Footer -->
-        <div class="border-t p-4 flex flex-col sm:flex-row gap-3 justify-end">
-            <button onclick="closeModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm font-medium">
+        <div class="border-t p-4 bg-gray-50 flex flex-col sm:flex-row gap-3 justify-end rounded-b-xl">
+            <button onclick="closeModal()" class="px-6 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-100 transition text-sm font-medium">
                 <i class="fas fa-times mr-2"></i>Cancel
             </button>
-            <button onclick="submitConfirmedReport()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">
+            <button onclick="submitConfirmedReport()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium flex items-center">
                 <i class="fas fa-check-circle mr-2"></i>CONFIRM & SUBMIT
             </button>
         </div>
     </div>
 </div>
-
-    <style>
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        .animate-slideIn {
-            animation: slideIn 0.3s ease forwards;
-        }
-    </style>
-
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    
+    <!-- Pass PHP data to JavaScript -->
     <script>
-        // Mobile Menu Functions
-        const sidebar = document.getElementById('sidebar');
-        const menuBtn = document.getElementById('mobileMenuBtn');
-        const closeBtn = document.getElementById('closeSidebar');
-        const overlay = document.getElementById('menuOverlay');
-
-        function openMobileMenu() {
-            sidebar.classList.add('open');
-            overlay.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeMobileMenu() {
-            sidebar.classList.remove('open');
-            overlay.classList.add('hidden');
-            document.body.style.overflow = '';
-        }
-
-        if (menuBtn) menuBtn.addEventListener('click', openMobileMenu);
-        if (closeBtn) closeBtn.addEventListener('click', closeMobileMenu);
-        if (overlay) overlay.addEventListener('click', closeMobileMenu);
-        window.addEventListener('resize', function() { if (window.innerWidth >= 768) closeMobileMenu(); });
-
-        // Map Variables
-        let map;
-        let marker;
-        let userMarker;
-        let currentLat = 8.366379;
-        let currentLng = 124.864432;
-        let currentLayer = 'street';
-        
-        // Map layer definitions
-        const mapLayers = {
-            street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
-            }),
-            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-                maxZoom: 19
-            }),
-            terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-                attribution: 'Map data: &copy; <a href="https://www.opentopomap.org">OpenTopoMap</a> contributors',
-                maxZoom: 17
-            }),
-            hybrid: L.layerGroup([
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Tiles &copy; Esri',
-                    maxZoom: 19
-                }),
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap',
-                    maxZoom: 19,
-                    opacity: 0.5
-                })
-            ])
-        };
-
-        // Barangay coordinates from PHP
-        const barangayCoords = {
-            <?php
-            $first = true;
-            foreach ($barangay_data as $b): 
-                if (!$first) echo ",";
-                $first = false;
-            ?>
-            "<?php echo $b['barangay_id']; ?>": {
-                name: "<?php echo addslashes($b['barangay_name']); ?>",
-                lat: <?php echo $b['latitude']; ?>,
-                lng: <?php echo $b['longitude']; ?>
-            }
-            <?php endforeach; ?>
-        };
-
-        // Initialize Map
+        const barangayData = <?php echo json_encode($barangay_data); ?>;
+    </script>
+    
+    <!-- Custom JavaScript -->
+    <script src="js/user_dashboard.js"></script>
+    
+    <!-- Initialize map with barangay data -->
+    <script>
         document.addEventListener('DOMContentLoaded', function() {
-            initMap();
+            // Convert barangayData to the format expected by initMap
+            const coords = {};
+            barangayData.forEach(b => {
+                coords[b.barangay_id] = {
+                    name: b.barangay_name,
+                    lat: parseFloat(b.latitude),
+                    lng: parseFloat(b.longitude)
+                };
+            });
+            
+            initMap(coords);
             setPhilippineDateTime();
         });
-
-        // Photo Upload Validation
-        function validatePhotoUpload(input) {
-            const files = input.files;
-            const messageEl = document.getElementById('photoUploadMessage');
-            let totalSize = 0;
-            
-            if (files.length > 5) {
-                messageEl.innerHTML = '<span class="text-red-500">Maximum 5 photos allowed</span>';
-                input.value = '';
-                return;
-            }
-            
-            for (let i = 0; i < files.length; i++) {
-                totalSize += files[i].size;
-            }
-            
-            const totalSizeMB = totalSize / (1024 * 1024);
-            
-            if (totalSizeMB > 15) {
-                messageEl.innerHTML = '<span class="text-red-500">Total file size must be less than 15MB</span>';
-                input.value = '';
-            } else {
-                messageEl.innerHTML = `<span class="text-green-500">Selected ${files.length} file(s) (${totalSizeMB.toFixed(2)}MB)</span>`;
-            }
-        }
-
-        function setPhilippineDateTime() {
-            const now = new Date();
-            const phTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-            
-            const year = phTime.getUTCFullYear();
-            const month = String(phTime.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(phTime.getUTCDate()).padStart(2, '0');
-            const phDate = `${year}-${month}-${day}`;
-            
-            const hours = String(phTime.getUTCHours()).padStart(2, '0');
-            const minutes = String(phTime.getUTCMinutes()).padStart(2, '0');
-            const phTimeStr = `${hours}:${minutes}`;
-            
-            document.getElementById('activity_date').value = phDate;
-            document.getElementById('activity_time').value = phTimeStr;
-        }
-
-        function initMap() {
-            if (!document.getElementById('map')) return;
-            
-            let zoomLevel = window.innerWidth < 540 ? 11 : 12;
-            
-            // Create map with default street layer
-            map = L.map('map', {
-                layers: [mapLayers.street]
-            }).setView([currentLat, currentLng], zoomLevel);
-
-            // Add scale control
-            L.control.scale({ imperial: false, metric: true }).addTo(map);
-
-            // Add geocoder control (search)
-            L.Control.geocoder({
-                defaultMarkGeocode: false,
-                placeholder: 'Search location...',
-                errorMessage: 'Location not found',
-                showResultIcons: true
-            }).on('markgeocode', function(e) {
-                const latlng = e.geocode.center;
-                map.setView(latlng, 16);
-                placeMarker(latlng.lat, latlng.lng);
-                reverseGeocode(latlng.lat, latlng.lng);
-                findNearestBarangay(latlng.lat, latlng.lng);
-            }).addTo(map);
-
-            map.on('click', function(e) {
-                placeMarker(e.latlng.lat, e.latlng.lng);
-                reverseGeocode(e.latlng.lat, e.latlng.lng);
-                findNearestBarangay(e.latlng.lat, e.latlng.lng);
-            });
-
-            window.addEventListener('orientationchange', function() {
-                setTimeout(() => map.invalidateSize(), 200);
-            });
-        }
-
-        function changeMapLayer(layerType) {
-            if (!map) return;
-            
-            // Remove all layers
-            map.eachLayer(function(layer) {
-                if (layer instanceof L.TileLayer) {
-                    map.removeLayer(layer);
-                }
-            });
-            
-            // Add selected layer
-            if (layerType === 'street') {
-                mapLayers.street.addTo(map);
-            } else if (layerType === 'satellite') {
-                mapLayers.satellite.addTo(map);
-            } else if (layerType === 'terrain') {
-                mapLayers.terrain.addTo(map);
-            } else if (layerType === 'hybrid') {
-                mapLayers.hybrid.addTo(map);
-            }
-            
-            currentLayer = layerType;
-        }
-
-        function findNearestBarangay(lat, lng) {
-            let nearestBarangay = null;
-            let minDistance = Infinity;
-            
-            for (let id in barangayCoords) {
-                const b = barangayCoords[id];
-                const distance = calculateDistance(lat, lng, b.lat, b.lng);
-                
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    nearestBarangay = { id: id, name: b.name };
-                }
-            }
-            
-            if (nearestBarangay && minDistance < 2) {
-                document.getElementById('selectedBarangayId').value = nearestBarangay.id;
-                const select = document.getElementById('barangaySelect');
-                select.value = nearestBarangay.id;
-            }
-        }
-
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = 
-                Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        function placeMarker(lat, lng) {
-            if (marker) {
-                marker.setLatLng([lat, lng]);
-            } else {
-                marker = L.marker([lat, lng], {
-                    icon: L.divIcon({
-                        className: 'location-marker',
-                        html: '<div class="location-marker"></div>',
-                        iconSize: [20, 20]
-                    })
-                }).addTo(map).bindPopup('Selected Location');
-            }
-            
-            document.getElementById('selectedLat').value = lat.toFixed(6);
-            document.getElementById('selectedLng').value = lng.toFixed(6);
-            
-            document.getElementById('locationInfo').classList.remove('hidden');
-            document.getElementById('locationText').innerHTML = `Selected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-            document.getElementById('coordinatesText').innerHTML = `Lat: ${lat.toFixed(6)}, Long: ${lng.toFixed(6)}`;
-            
-            // Try to get elevation data (optional)
-            getElevation(lat, lng);
-        }
-
-        function getElevation(lat, lng) {
-            // Using Open-Elevation API (free, no API key required)
-            fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.results && data.results[0]) {
-                        const elevation = data.results[0].elevation;
-                        document.getElementById('elevationText').innerHTML = `Elevation: ${Math.round(elevation)}m`;
-                    }
-                })
-                .catch(() => {
-                    // Silently fail - elevation is optional
-                });
-        }
-
-        function reverseGeocode(lat, lng) {
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
-                .then(response => response.json())
-                .then(data => {
-                    let locationName = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-                    document.getElementById('specificLocation').value = locationName.substring(0, 100);
-                    
-                    // Update marker popup with location name
-                    if (marker) {
-                        marker.bindPopup(locationName.substring(0, 50)).openPopup();
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('specificLocation').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-                });
-        }
-
-        function zoomToBarangay(select) {
-            const barangayId = select.value;
-            if (barangayId && barangayCoords[barangayId]) {
-                const coords = barangayCoords[barangayId];
-                map.setView([coords.lat, coords.lng], 16);
-                placeMarker(coords.lat, coords.lng);
-                document.getElementById('selectedBarangayId').value = barangayId;
-                document.getElementById('specificLocation').value = coords.name + ', Manolo Fortich';
-            }
-        }
-
-        function getUserLocation() {
-            if (navigator.geolocation) {
-                document.getElementById('locationInfo').classList.remove('hidden');
-                document.getElementById('locationText').innerHTML = 'Getting your exact location...';
-                
-                navigator.geolocation.getCurrentPosition(
-                    function(position) {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-                        const accuracy = position.coords.accuracy;
-                        
-                        map.setView([lat, lng], 18);
-                        
-                        if (userMarker) map.removeLayer(userMarker);
-                        
-                        userMarker = L.marker([lat, lng], {
-                            icon: L.divIcon({
-                                className: 'user-location-marker',
-                                html: '<div class="user-location-marker"></div>',
-                                iconSize: [20, 20]
-                            })
-                        }).addTo(map).bindPopup(`<b>Your Location</b><br>Accuracy: ${accuracy.toFixed(1)}m`).openPopup();
-                        
-                        placeMarker(lat, lng);
-                        reverseGeocode(lat, lng);
-                        findNearestBarangay(lat, lng);
-                        document.getElementById('gps_accuracy').value = accuracy;
-                        document.getElementById('locationText').innerHTML = `Your location (accuracy: ${accuracy.toFixed(1)}m)`;
-                        setPhilippineDateTime();
-                    },
-                    function(error) {
-                        let msg = 'Location error: ';
-                        switch(error.code) {
-                            case error.PERMISSION_DENIED: msg += 'Please allow location access.'; break;
-                            case error.POSITION_UNAVAILABLE: msg += 'Location unavailable.'; break;
-                            case error.TIMEOUT: msg += 'Request timed out.'; break;
-                            default: msg += 'Unknown error.';
-                        }
-                        alert(msg);
-                        document.getElementById('locationInfo').classList.add('hidden');
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-            } else {
-                alert('Geolocation not supported');
-            }
-        }
-
-        function resetMapView() {
-            map.setView([8.366379, 124.864432], 12);
-            if (marker) map.removeLayer(marker);
-            if (userMarker) map.removeLayer(userMarker);
-            marker = null;
-            userMarker = null;
-            document.getElementById('specificLocation').value = '';
-            document.getElementById('locationInfo').classList.add('hidden');
-            document.getElementById('selectedLat').value = '';
-            document.getElementById('selectedLng').value = '';
-            document.getElementById('selectedBarangayId').value = '';
-            document.getElementById('barangaySelect').value = '';
-            document.getElementById('elevationText').innerHTML = '';
-            setPhilippineDateTime();
-            
-            // Reset to street layer if changed
-            if (currentLayer !== 'street') {
-                document.getElementById('mapLayerSelect').value = 'street';
-                changeMapLayer('street');
-            }
-        }
-
-        function toggleActivityFields(activityType) {
-            document.getElementById('personnelField').classList.add('hidden');
-            document.getElementById('vehicleField').classList.add('hidden');
-            document.getElementById('checkpointFields').classList.add('hidden');
-            document.getElementById('oplanFields').classList.add('hidden');
-            document.getElementById('bakalField').classList.add('hidden');
-            document.getElementById('sitaField').classList.add('hidden');
-
-            // Show personnel field for patrols and oplans, but NOT for checkpoints
-            if (activityType.includes('Patrol') || activityType.includes('Oplan')) {
-                document.getElementById('personnelField').classList.remove('hidden');
-            }
-            
-            if (activityType === 'Mobile Patrol' || activityType === 'Motorcycle Patrol') {
-                document.getElementById('vehicleField').classList.remove('hidden');
-            }
-            
-            if (activityType === 'checkpoint') {
-                document.getElementById('checkpointFields').classList.remove('hidden');
-                // Personnel field is NOT shown for checkpoints
-            }
-            
-            if (activityType === 'Oplan Bakal') {
-                document.getElementById('oplanFields').classList.remove('hidden');
-                document.getElementById('bakalField').classList.remove('hidden');
-            }
-            
-            if (activityType === 'Oplan Sita') {
-                document.getElementById('oplanFields').classList.remove('hidden');
-                document.getElementById('sitaField').classList.remove('hidden');
-            }
-        }
-
-        // Modal Functions
-function openModal() {
-    // Validate form first
-    const form = document.getElementById('activityForm');
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return false;
-    }
-    
-    // Check if location is selected
-    if (!document.getElementById('selectedLat').value || !document.getElementById('selectedLng').value) {
-        alert('Please select a location on the map');
-        return false;
-    }
-    
-    // Check if barangay is selected
-    if (!document.getElementById('selectedBarangayId').value) {
-        alert('Please select a barangay');
-        return false;
-    }
-    
-    // Populate modal with form data
-    populateConfirmationModal();
-    
-    // Show modal
-    document.getElementById('confirmationModal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    return false; // Prevent form submission
-}
-
-function closeModal() {
-    document.getElementById('confirmationModal').classList.add('hidden');
-    document.body.style.overflow = '';
-}
-
-function closeModalOnOutsideClick(event) {
-    if (event.target === document.getElementById('confirmationModal')) {
-        closeModal();
-    }
-}
-
-function populateConfirmationModal() {
-    // Basic info
-    const activityType = document.getElementById('activity_type').options[document.getElementById('activity_type').selectedIndex].text;
-    document.getElementById('confirmActivityType').textContent = activityType;
-    
-    const date = document.getElementById('activity_date').value;
-    const time = document.getElementById('activity_time').value;
-    const dateTime = new Date(date + 'T' + time);
-    const formattedDateTime = dateTime.toLocaleString('en-PH', { 
-        month: 'long', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: 'numeric', hour12: true 
-    });
-    document.getElementById('confirmDateTime').textContent = formattedDateTime;
-    
-    const location = document.getElementById('specificLocation').value;
-    document.getElementById('confirmLocation').textContent = location || 'Not specified';
-    
-    const lat = document.getElementById('selectedLat').value;
-    const lng = document.getElementById('selectedLng').value;
-    document.getElementById('confirmCoordinates').textContent = `Lat: ${lat}, Long: ${lng}`;
-    
-    // Barangay
-    const barangaySelect = document.getElementById('barangaySelect');
-    const barangayText = barangaySelect.options[barangaySelect.selectedIndex]?.text || 'Not selected';
-    document.getElementById('confirmBarangay').textContent = barangayText;
-    
-    // Personnel & Vehicle
-    const personnel = document.querySelector('[name="personnel_count"]')?.value || '-';
-    document.getElementById('confirmPersonnel').textContent = personnel;
-    
-    const vehicle = document.querySelector('[name="vehicle_number"]')?.value || 'None';
-    document.getElementById('confirmVehicle').textContent = vehicle;
-    
-    // Checkpoint fields
-    document.getElementById('confirmBorderOps').textContent = document.querySelector('[name="border_control_ops"]')?.value || '0';
-    document.getElementById('confirmBorderPersonnel').textContent = document.querySelector('[name="border_personnel"]')?.value || '0';
-    document.getElementById('confirmOverlapping').textContent = document.querySelector('[name="overlapping_ops"]')?.value || '0';
-    document.getElementById('confirmMobileOps').textContent = document.querySelector('[name="mobile_checkpoint_ops"]')?.value || '0';
-    document.getElementById('confirmMobilePersonnel').textContent = document.querySelector('[name="mobile_personnel"]')?.value || '0';
-    document.getElementById('confirmTct').textContent = document.querySelector('[name="tct_ovr_accomplishment"]')?.value || '0';
-    document.getElementById('confirmArrests').textContent = document.querySelector('[name="arrested_accomplishment"]')?.value || '0';
-    
-    // Oplan fields
-    document.getElementById('confirmOperations').textContent = document.querySelector('[name="operations_count"]')?.value || '-';
-    document.getElementById('confirmOplanArrests').textContent = document.querySelector('[name="arrests_made"]')?.value || '-';
-    document.getElementById('confirmFirearms').textContent = document.querySelector('[name="firearms_seized"]')?.value || '-';
-    document.getElementById('confirmContraband').textContent = document.querySelector('[name="contraband_kg"]')?.value || '-';
-    
-    // Description
-    document.getElementById('confirmDescription').textContent = document.querySelector('[name="accomplishment_description"]')?.value || 'No description provided';
-    
-    // Photos
-    const photoInput = document.querySelector('[name="photos[]"]');
-    let photoText = 'No photos uploaded';
-    if (photoInput.files.length > 0) {
-        photoText = `${photoInput.files.length} photo(s) selected:`;
-        for (let i = 0; i < photoInput.files.length; i++) {
-            photoText += `\n- ${photoInput.files[i].name} (${(photoInput.files[i].size / 1024).toFixed(1)}KB)`;
-        }
-    }
-    document.getElementById('confirmPhotos').textContent = photoText;
-    
-    // GPS Accuracy
-    const gpsAccuracy = document.getElementById('gps_accuracy').value;
-    document.getElementById('confirmGps').textContent = gpsAccuracy ? `GPS Accuracy: ${gpsAccuracy}m` : '';
-    
-    // Show/hide relevant sections
-    const type = document.getElementById('activity_type').value;
-    
-    // Hide all specific sections first
-    document.getElementById('confirmPersonnelField').classList.add('hidden');
-    document.getElementById('confirmVehicleField').classList.add('hidden');
-    document.getElementById('confirmCheckpointFields').classList.add('hidden');
-    document.getElementById('confirmOplanFields').classList.add('hidden');
-    document.getElementById('confirmBakalField').classList.add('hidden');
-    document.getElementById('confirmSitaField').classList.add('hidden');
-    
-    // Show relevant sections
-    if (type.includes('Patrol') || type.includes('Oplan')) {
-        document.getElementById('confirmPersonnelField').classList.remove('hidden');
-    }
-    
-    if (type === 'Mobile Patrol' || type === 'Motorcycle Patrol') {
-        document.getElementById('confirmVehicleField').classList.remove('hidden');
-    }
-    
-    if (type === 'checkpoint') {
-        document.getElementById('confirmCheckpointFields').classList.remove('hidden');
-    }
-    
-    if (type === 'Oplan Bakal') {
-        document.getElementById('confirmOplanFields').classList.remove('hidden');
-        document.getElementById('confirmBakalField').classList.remove('hidden');
-    }
-    
-    if (type === 'Oplan Sita') {
-        document.getElementById('confirmOplanFields').classList.remove('hidden');
-        document.getElementById('confirmSitaField').classList.remove('hidden');
-    }
-}
-
-function submitConfirmedReport() {
-    // Change status to approved before submitting
-    const form = document.getElementById('activityForm');
-    
-    // Add hidden field for status if needed (optional)
-    // const statusInput = document.createElement('input');
-    // statusInput.type = 'hidden';
-    // statusInput.name = 'status';
-    // statusInput.value = 'approved';
-    // form.appendChild(statusInput);
-    
-    // Close modal
-    closeModal();
-    
-    // Show loading state
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
-    submitBtn.disabled = true;
-    
-    // Submit form
-    form.submit();
-}
-
-// Modify the form to use modal
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('activityForm');
-    const originalSubmit = form.onsubmit;
-    
-    form.onsubmit = function(e) {
-        e.preventDefault();
-        return openModal();
-    };
-});
     </script>
 </body>
 </html>
