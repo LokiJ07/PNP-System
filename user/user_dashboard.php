@@ -602,6 +602,112 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
         </div>
     </div>
 
+    <!-- Confirmation Modal -->
+<div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4" onclick="closeModalOnOutsideClick(event)">
+    <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <!-- Modal Header -->
+        <div class="bg-[#08324f] text-white p-4 rounded-t-xl flex justify-between items-center sticky top-0">
+            <h3 class="text-lg font-semibold flex items-center">
+                <i class="fas fa-check-circle text-yellow-400 mr-2"></i>
+                Confirm Activity Report
+            </h3>
+            <button onclick="closeModal()" class="text-white hover:text-gray-300">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="p-6">
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <p class="text-sm text-yellow-700">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Please review your report carefully. Once confirmed, this will be automatically APPROVED.
+                </p>
+            </div>
+            
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <p class="text-xs text-gray-500">Activity Type</p>
+                    <p class="font-semibold" id="confirmActivityType">-</p>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <p class="text-xs text-gray-500">Date & Time</p>
+                    <p class="font-semibold" id="confirmDateTime">-</p>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-lg md:col-span-2">
+                    <p class="text-xs text-gray-500">Location</p>
+                    <p class="font-semibold" id="confirmLocation">-</p>
+                    <p class="text-xs text-gray-500 mt-1" id="confirmCoordinates">-</p>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-lg md:col-span-2">
+                    <p class="text-xs text-gray-500">Barangay</p>
+                    <p class="font-semibold" id="confirmBarangay">-</p>
+                </div>
+            </div>
+            
+            <!-- Activity Specific Fields -->
+            <div id="confirmPersonnelField" class="hidden mb-4 p-3 bg-blue-50 rounded-lg">
+                <p class="text-xs text-blue-600">Personnel Count: <span class="font-semibold" id="confirmPersonnel">-</span></p>
+            </div>
+            
+            <div id="confirmVehicleField" class="hidden mb-4 p-3 bg-blue-50 rounded-lg">
+                <p class="text-xs text-blue-600">Vehicle Number: <span class="font-semibold" id="confirmVehicle">-</span></p>
+            </div>
+            
+            <!-- Checkpoint Fields -->
+            <div id="confirmCheckpointFields" class="hidden mb-4">
+                <h4 class="font-medium text-sm mb-2 text-[#08324f]">Checkpoint Details</h4>
+                <div class="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg">
+                    <div><span class="text-xs text-gray-500">Border Control Ops:</span> <span class="text-sm font-semibold" id="confirmBorderOps">0</span></div>
+                    <div><span class="text-xs text-gray-500">Border Personnel:</span> <span class="text-sm font-semibold" id="confirmBorderPersonnel">0</span></div>
+                    <div><span class="text-xs text-gray-500">Overlapping Ops:</span> <span class="text-sm font-semibold" id="confirmOverlapping">0</span></div>
+                    <div><span class="text-xs text-gray-500">Mobile Checkpoint Ops:</span> <span class="text-sm font-semibold" id="confirmMobileOps">0</span></div>
+                    <div><span class="text-xs text-gray-500">Mobile Personnel:</span> <span class="text-sm font-semibold" id="confirmMobilePersonnel">0</span></div>
+                    <div><span class="text-xs text-gray-500">TCT/OVR Accomplishment:</span> <span class="text-sm font-semibold" id="confirmTct">0</span></div>
+                    <div><span class="text-xs text-gray-500">Arrests Made:</span> <span class="text-sm font-semibold" id="confirmArrests">0</span></div>
+                </div>
+            </div>
+            
+            <!-- Oplan Fields -->
+            <div id="confirmOplanFields" class="hidden mb-4">
+                <h4 class="font-medium text-sm mb-2 text-[#08324f]">Oplan Details</h4>
+                <div class="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg">
+                    <div><span class="text-xs text-gray-500">Operations Count:</span> <span class="text-sm font-semibold" id="confirmOperations">-</span></div>
+                    <div><span class="text-xs text-gray-500">Arrests Made:</span> <span class="text-sm font-semibold" id="confirmOplanArrests">-</span></div>
+                    <div id="confirmBakalField" class="hidden"><span class="text-xs text-gray-500">Firearms Seized:</span> <span class="text-sm font-semibold" id="confirmFirearms">-</span></div>
+                    <div id="confirmSitaField" class="hidden"><span class="text-xs text-gray-500">Contraband (kg):</span> <span class="text-sm font-semibold" id="confirmContraband">-</span></div>
+                </div>
+            </div>
+            
+            <!-- Accomplishment Description -->
+            <div class="mb-4">
+                <h4 class="font-medium text-sm mb-2 text-[#08324f]">Accomplishment Description</h4>
+                <div class="p-3 bg-gray-50 rounded-lg text-sm" id="confirmDescription">-</div>
+            </div>
+            
+            <!-- Photos -->
+            <div class="mb-4" id="confirmPhotosSection">
+                <h4 class="font-medium text-sm mb-2 text-[#08324f]">Photos</h4>
+                <div class="p-3 bg-gray-50 rounded-lg text-sm" id="confirmPhotos">No photos uploaded</div>
+            </div>
+            
+            <!-- GPS Accuracy -->
+            <div class="text-xs text-gray-500" id="confirmGps">-</div>
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="border-t p-4 flex flex-col sm:flex-row gap-3 justify-end">
+            <button onclick="closeModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm font-medium">
+                <i class="fas fa-times mr-2"></i>Cancel
+            </button>
+            <button onclick="submitConfirmedReport()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">
+                <i class="fas fa-check-circle mr-2"></i>CONFIRM & SUBMIT
+            </button>
+        </div>
+    </div>
+</div>
+
     <style>
         @keyframes slideIn {
             from {
@@ -1006,6 +1112,183 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                 document.getElementById('sitaField').classList.remove('hidden');
             }
         }
+
+        // Modal Functions
+function openModal() {
+    // Validate form first
+    const form = document.getElementById('activityForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return false;
+    }
+    
+    // Check if location is selected
+    if (!document.getElementById('selectedLat').value || !document.getElementById('selectedLng').value) {
+        alert('Please select a location on the map');
+        return false;
+    }
+    
+    // Check if barangay is selected
+    if (!document.getElementById('selectedBarangayId').value) {
+        alert('Please select a barangay');
+        return false;
+    }
+    
+    // Populate modal with form data
+    populateConfirmationModal();
+    
+    // Show modal
+    document.getElementById('confirmationModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    return false; // Prevent form submission
+}
+
+function closeModal() {
+    document.getElementById('confirmationModal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function closeModalOnOutsideClick(event) {
+    if (event.target === document.getElementById('confirmationModal')) {
+        closeModal();
+    }
+}
+
+function populateConfirmationModal() {
+    // Basic info
+    const activityType = document.getElementById('activity_type').options[document.getElementById('activity_type').selectedIndex].text;
+    document.getElementById('confirmActivityType').textContent = activityType;
+    
+    const date = document.getElementById('activity_date').value;
+    const time = document.getElementById('activity_time').value;
+    const dateTime = new Date(date + 'T' + time);
+    const formattedDateTime = dateTime.toLocaleString('en-PH', { 
+        month: 'long', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: 'numeric', hour12: true 
+    });
+    document.getElementById('confirmDateTime').textContent = formattedDateTime;
+    
+    const location = document.getElementById('specificLocation').value;
+    document.getElementById('confirmLocation').textContent = location || 'Not specified';
+    
+    const lat = document.getElementById('selectedLat').value;
+    const lng = document.getElementById('selectedLng').value;
+    document.getElementById('confirmCoordinates').textContent = `Lat: ${lat}, Long: ${lng}`;
+    
+    // Barangay
+    const barangaySelect = document.getElementById('barangaySelect');
+    const barangayText = barangaySelect.options[barangaySelect.selectedIndex]?.text || 'Not selected';
+    document.getElementById('confirmBarangay').textContent = barangayText;
+    
+    // Personnel & Vehicle
+    const personnel = document.querySelector('[name="personnel_count"]')?.value || '-';
+    document.getElementById('confirmPersonnel').textContent = personnel;
+    
+    const vehicle = document.querySelector('[name="vehicle_number"]')?.value || 'None';
+    document.getElementById('confirmVehicle').textContent = vehicle;
+    
+    // Checkpoint fields
+    document.getElementById('confirmBorderOps').textContent = document.querySelector('[name="border_control_ops"]')?.value || '0';
+    document.getElementById('confirmBorderPersonnel').textContent = document.querySelector('[name="border_personnel"]')?.value || '0';
+    document.getElementById('confirmOverlapping').textContent = document.querySelector('[name="overlapping_ops"]')?.value || '0';
+    document.getElementById('confirmMobileOps').textContent = document.querySelector('[name="mobile_checkpoint_ops"]')?.value || '0';
+    document.getElementById('confirmMobilePersonnel').textContent = document.querySelector('[name="mobile_personnel"]')?.value || '0';
+    document.getElementById('confirmTct').textContent = document.querySelector('[name="tct_ovr_accomplishment"]')?.value || '0';
+    document.getElementById('confirmArrests').textContent = document.querySelector('[name="arrested_accomplishment"]')?.value || '0';
+    
+    // Oplan fields
+    document.getElementById('confirmOperations').textContent = document.querySelector('[name="operations_count"]')?.value || '-';
+    document.getElementById('confirmOplanArrests').textContent = document.querySelector('[name="arrests_made"]')?.value || '-';
+    document.getElementById('confirmFirearms').textContent = document.querySelector('[name="firearms_seized"]')?.value || '-';
+    document.getElementById('confirmContraband').textContent = document.querySelector('[name="contraband_kg"]')?.value || '-';
+    
+    // Description
+    document.getElementById('confirmDescription').textContent = document.querySelector('[name="accomplishment_description"]')?.value || 'No description provided';
+    
+    // Photos
+    const photoInput = document.querySelector('[name="photos[]"]');
+    let photoText = 'No photos uploaded';
+    if (photoInput.files.length > 0) {
+        photoText = `${photoInput.files.length} photo(s) selected:`;
+        for (let i = 0; i < photoInput.files.length; i++) {
+            photoText += `\n- ${photoInput.files[i].name} (${(photoInput.files[i].size / 1024).toFixed(1)}KB)`;
+        }
+    }
+    document.getElementById('confirmPhotos').textContent = photoText;
+    
+    // GPS Accuracy
+    const gpsAccuracy = document.getElementById('gps_accuracy').value;
+    document.getElementById('confirmGps').textContent = gpsAccuracy ? `GPS Accuracy: ${gpsAccuracy}m` : '';
+    
+    // Show/hide relevant sections
+    const type = document.getElementById('activity_type').value;
+    
+    // Hide all specific sections first
+    document.getElementById('confirmPersonnelField').classList.add('hidden');
+    document.getElementById('confirmVehicleField').classList.add('hidden');
+    document.getElementById('confirmCheckpointFields').classList.add('hidden');
+    document.getElementById('confirmOplanFields').classList.add('hidden');
+    document.getElementById('confirmBakalField').classList.add('hidden');
+    document.getElementById('confirmSitaField').classList.add('hidden');
+    
+    // Show relevant sections
+    if (type.includes('Patrol') || type.includes('Oplan')) {
+        document.getElementById('confirmPersonnelField').classList.remove('hidden');
+    }
+    
+    if (type === 'Mobile Patrol' || type === 'Motorcycle Patrol') {
+        document.getElementById('confirmVehicleField').classList.remove('hidden');
+    }
+    
+    if (type === 'checkpoint') {
+        document.getElementById('confirmCheckpointFields').classList.remove('hidden');
+    }
+    
+    if (type === 'Oplan Bakal') {
+        document.getElementById('confirmOplanFields').classList.remove('hidden');
+        document.getElementById('confirmBakalField').classList.remove('hidden');
+    }
+    
+    if (type === 'Oplan Sita') {
+        document.getElementById('confirmOplanFields').classList.remove('hidden');
+        document.getElementById('confirmSitaField').classList.remove('hidden');
+    }
+}
+
+function submitConfirmedReport() {
+    // Change status to approved before submitting
+    const form = document.getElementById('activityForm');
+    
+    // Add hidden field for status if needed (optional)
+    // const statusInput = document.createElement('input');
+    // statusInput.type = 'hidden';
+    // statusInput.name = 'status';
+    // statusInput.value = 'approved';
+    // form.appendChild(statusInput);
+    
+    // Close modal
+    closeModal();
+    
+    // Show loading state
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
+    submitBtn.disabled = true;
+    
+    // Submit form
+    form.submit();
+}
+
+// Modify the form to use modal
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('activityForm');
+    const originalSubmit = form.onsubmit;
+    
+    form.onsubmit = function(e) {
+        e.preventDefault();
+        return openModal();
+    };
+});
     </script>
 </body>
 </html>
