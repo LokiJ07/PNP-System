@@ -2,7 +2,7 @@
 // =====================================================
 // FILE: admin/accomplishment_report.php
 // PURPOSE: Detailed accomplishment report with all fields
-// IMPROVED: Added disposition, better UI, mobile responsive
+// IMPROVED: Better print format, organized sections
 // =====================================================
 
 session_start();
@@ -67,7 +67,7 @@ $oplan_counts = $result->fetch_assoc();
 $stats['oplan_bakal'] = $oplan_counts['oplan_bakal'] ?? 0;
 $stats['oplan_sita'] = $oplan_counts['oplan_sita'] ?? 0;
 
-// ===== DISPOSITION TOTALS (NEW) =====
+// Disposition totals
 $result = $conn->query("
     SELECT 
         (SELECT COALESCE(SUM(fixed_count), 0) FROM checkpoint_activities WHERE 1=1 $date_condition) +
@@ -87,7 +87,7 @@ $result = $conn->query("
 ");
 $disposition = $result->fetch_assoc();
 
-// ===== DETAILED PATROL BREAKDOWN =====
+// Detailed Patrol Breakdown
 $patrol_details = [];
 $patrol_query = $conn->query("
     SELECT 
@@ -105,7 +105,7 @@ while ($p = $patrol_query->fetch_assoc()) {
     ];
 }
 
-// ===== DETAILED CHECKPOINT BREAKDOWN =====
+// Detailed Checkpoint Breakdown
 $checkpoint_query = $conn->query("
     SELECT 
         COUNT(*) as total_checkpoints,
@@ -126,7 +126,7 @@ $checkpoint_query = $conn->query("
 ");
 $checkpoint_details = $checkpoint_query->fetch_assoc();
 
-// ===== DETAILED OPLAN BREAKDOWN =====
+// Detailed Oplan Breakdown
 $oplan_details = [];
 $oplan_query = $conn->query("
     SELECT 
@@ -153,7 +153,7 @@ while ($o = $oplan_query->fetch_assoc()) {
     $oplan_details[$o['oplan_type']] = $o;
 }
 
-// ===== VIOLATIONS BREAKDOWN =====
+// Violations Breakdown
 $violations_query = $conn->query("
     SELECT 
         (SELECT COALESCE(SUM(drinking_violations), 0) FROM patrol_activities WHERE 1=1 $date_condition) +
@@ -253,63 +253,6 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             }
         }
         
-        /* PRINT STYLES */
-        @media print {
-            .no-print, 
-            .sidebar, 
-            .flex-1 > .bg-white:first-of-type,
-            .flex-1 > .bg-white:nth-of-type(2),
-            button,
-            .dropdown,
-            .no-print * {
-                display: none !important;
-            }
-            
-            html, body {
-                background: white !important;
-                margin: 0 !important;
-                padding: 10px !important;
-                font-size: 11pt;
-            }
-            
-            .print-area {
-                display: block !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                box-shadow: none !important;
-            }
-            
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 10px 0;
-                font-size: 10pt;
-            }
-            
-            th {
-                background: #08324f !important;
-                color: white !important;
-                padding: 6px;
-                text-align: left;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            
-            td {
-                padding: 4px 6px;
-                border-bottom: 1px solid #ddd;
-            }
-            
-            .summary-card {
-                background: #f8f9fa !important;
-                padding: 8px;
-                border-left: 4px solid #08324f;
-                margin-bottom: 8px;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-        }
-        
         /* Card styles */
         .stat-card {
             transition: all 0.2s ease;
@@ -329,9 +272,157 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             margin-bottom: 12px;
         }
         
-        .value-highlight {
-            font-weight: 700;
-            color: #08324f;
+        /* ===== IMPROVED PRINT STYLES ===== */
+        @media print {
+            /* Hide non-printable elements */
+            .no-print, 
+            .sidebar, 
+            .flex-1 > .bg-white:first-of-type,
+            .flex-1 > .bg-white:nth-of-type(2),
+            button,
+            .dropdown,
+            .no-print * {
+                display: none !important;
+            }
+            
+            /* Print area setup */
+            .print-area {
+                display: block !important;
+                padding: 0.25in !important;
+                margin: 0 auto !important;
+                background: white !important;
+                max-width: 100% !important;
+                box-shadow: none !important;
+            }
+            
+            /* Page setup */
+            @page {
+                size: A4;
+                margin: 0.5in;
+            }
+            
+            html, body {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                font-size: 11pt;
+                line-height: 1.4;
+            }
+            
+            /* Force colors to print */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            /* Republic Header */
+            .print-area .text-center:first-of-type {
+                margin-top: 0 !important;
+                page-break-after: avoid;
+            }
+            
+            .print-area img {
+                max-width: 70px !important;
+            }
+            
+            /* Headers */
+            h1 { font-size: 16pt; }
+            h2 { font-size: 14pt; }
+            h3 { font-size: 12pt; }
+            h4 { font-size: 11pt; }
+            
+            /* Section titles */
+            .section-title {
+                font-size: 12pt !important;
+                border-bottom: 2px solid #08324f !important;
+                margin-top: 20px !important;
+                page-break-after: avoid;
+            }
+            
+            /* Cards */
+            .stat-card, .border-l-4 {
+                border-left-width: 4px !important;
+                background-color: #f8f9fa !important;
+                padding: 8px !important;
+                margin-bottom: 8px !important;
+            }
+            
+            /* Tables */
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 15px 0;
+                page-break-inside: avoid;
+            }
+            
+            th {
+                background: #08324f !important;
+                color: white !important;
+                padding: 8px;
+                font-weight: 600;
+                text-align: left;
+            }
+            
+            td {
+                padding: 6px 8px;
+                border-bottom: 1px solid #ddd;
+            }
+            
+            /* Avoid page breaks */
+            tr, .stat-card, .section-title, .border, .bg-gray-50 {
+                page-break-inside: avoid;
+            }
+            
+            /* Header repeat */
+            thead {
+                display: table-header-group;
+            }
+            
+            /* Signature lines */
+            .border-t {
+                border-top: 1px solid black !important;
+            }
+            
+            /* Background colors */
+            .bg-blue-50 { background-color: #e6f3ff !important; }
+            .bg-green-50 { background-color: #e6f7e6 !important; }
+            .bg-red-50 { background-color: #ffe6e6 !important; }
+            .bg-yellow-50 { background-color: #fff9e6 !important; }
+            .bg-gray-50 { background-color: #f9f9f9 !important; }
+            
+            /* Text colors */
+            .text-blue-200 { color: #08324f !important; }
+            .text-blue-600 { color: #2563eb !important; }
+            .text-red-600 { color: #dc2626 !important; }
+            .text-green-600 { color: #16a34a !important; }
+            .text-orange-600 { color: #ea580c !important; }
+            
+            /* Border colors */
+            .border-blue-500 { border-color: #3b82f6 !important; }
+            .border-red-500 { border-color: #ef4444 !important; }
+            .border-green-500 { border-color: #10b981 !important; }
+            .border-yellow-500 { border-color: #f59e0b !important; }
+            
+            /* Grid layout for print */
+            .grid {
+                display: grid !important;
+                gap: 8px !important;
+            }
+            
+            .grid-cols-2 { grid-template-columns: repeat(2, 1fr) !important; }
+            .grid-cols-3 { grid-template-columns: repeat(3, 1fr) !important; }
+            .grid-cols-4 { grid-template-columns: repeat(4, 1fr) !important; }
+            .grid-cols-5 { grid-template-columns: repeat(5, 1fr) !important; }
+            
+            /* Footer */
+            .print-footer {
+                text-align: center;
+                font-size: 8pt;
+                color: #666;
+                margin-top: 20px;
+                border-top: 1px solid #ccc;
+                padding-top: 8px;
+            }
         }
     </style>
 </head>
@@ -449,28 +540,41 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             </form>
         </div>
 
-        <!-- REPORT CONTENT -->
+        <!-- REPORT CONTENT - IMPROVED FOR PRINTING -->
         <div class="print-area bg-white p-4 md:p-6 rounded-lg shadow-md">
             
-            <!-- REPUBLIC HEADER -->
-            <div class="text-center mb-6 border-b pb-4">
-                <div class="flex justify-center items-center gap-3 mb-2">
-                    <img src="../image/pnplogo.png" class="w-12 h-12" alt="PNP Logo">
-                    <div>
-                        <h1 class="text-lg font-bold">REPUBLIC OF THE PHILIPPINES</h1>
-                        <h2 class="text-base">PHILIPPINE NATIONAL POLICE</h2>
+            <!-- ===== IMPROVED REPUBLIC HEADER ===== -->
+            <div class="text-center mb-8 border-b-2 border-[#08324f] pb-6">
+                <div class="flex justify-center items-center gap-4 sm:gap-8 mb-4">
+                    <!-- PNP Logo -->
+                    <div class="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
+                        <img src="../image/pnplogo.png" class="w-full h-full object-contain" alt="PNP Logo">
+                    </div>
+                    
+                    <!-- Republic Text -->
+                    <div class="text-center">
+                        <p class="text-xs sm:text-sm text-gray-600 mb-1">Republic of the Philippines</p>
+                        <h1 class="text-lg sm:text-2xl font-bold text-[#08324f]">NATIONAL POLICE COMMISSION</h1>
+                        <h2 class="text-base sm:text-xl font-bold text-[#08324f]">PHILIPPINE NATIONAL POLICE</h2>
+                    </div>
+                    
+                    <!-- PRO Logo (placeholder for balance) -->
+                    <div class="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 opacity-0">
+                        <!-- Empty for balance -->
                     </div>
                 </div>
-                <div class="border-t-2 border-b-2 border-[#08324f] py-1">
-                    <p class="font-bold">MANOLO FORTICH MUNICIPAL POLICE STATION</p>
-                    <p class="text-xs">Poblacion, Manolo Fortich, Bukidnon</p>
+                
+                <!-- Station Information -->
+                <div class="border-t-2 border-b-2 border-[#08324f] py-2 sm:py-3 mt-2 bg-gray-50/50">
+                    <p class="text-base sm:text-xl font-bold text-[#08324f]">MANOLO FORTICH MUNICIPAL POLICE STATION</p>
+                    <p class="text-xs sm:text-sm text-gray-600 mt-1">Poblacion, Manolo Fortich, Bukidnon 8703</p>
                 </div>
-            </div>
-
-            <!-- Report Title -->
-            <div class="text-center mb-6">
-                <h2 class="text-lg font-bold uppercase">ACCOMPLISHMENT REPORT</h2>
-                <p class="text-base"><?php echo date('F d, Y', strtotime($from_date)); ?> - <?php echo date('F d, Y', strtotime($to_date)); ?></p>
+                
+                <!-- Report Title -->
+                <div class="mt-4">
+                    <h3 class="text-lg sm:text-xl font-bold uppercase underline underline-offset-4">ACCOMPLISHMENT REPORT</h3>
+                    <p class="text-sm sm:text-base mt-1">For the Period: <?php echo date('F d, Y', strtotime($from_date)); ?> to <?php echo date('F d, Y', strtotime($to_date)); ?></p>
+                </div>
             </div>
 
             <!-- SUMMARY CARDS -->
@@ -493,7 +597,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                 </div>
             </div>
 
-            <!-- DISPOSITION SUMMARY (NEW) -->
+            <!-- DISPOSITION SUMMARY -->
             <div class="mb-6">
                 <h3 class="section-title">⚖️ DISPOSITION SUMMARY</h3>
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
