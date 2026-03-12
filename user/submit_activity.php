@@ -1,10 +1,15 @@
-   <?php
+<?php
 // =====================================================
 // FILE: user/submit_activity.php
-// PURPOSE: Handle activity submission with all new fields
+// PURPOSE: Handle activity submission with multiple photos and ALL fields
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
+
+// Enable error reporting for debugging (remove after fixing)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ../index.php');
@@ -28,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $personnel_count = $_POST['personnel_count'] ?? 1;
     $vehicle_number = $_POST['vehicle_number'] ?? null;
     
-    // Violation fields (for patrol, checkpoint, oplan sita)
+    // Violation fields
     $drinking_violations = $_POST['drinking_violations'] ?? 0;
     $smoking_violations = $_POST['smoking_violations'] ?? 0;
     $halfnaked_violations = $_POST['halfnaked_violations'] ?? 0;
@@ -37,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $other_violations = $_POST['other_violations'] ?? 0;
     $other_violations_desc = $_POST['other_violations_desc'] ?? null;
     
-    // Disposition fields (for checkpoint and oplan sita)
+    // Disposition fields
     $fixed_count = $_POST['fixed_count'] ?? 0;
     $fined_count = $_POST['fined_count'] ?? 0;
     $warned_count = $_POST['warned_count'] ?? 0;
@@ -54,7 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $firearms_crs = $_POST['firearms_crs'] ?? 0;
     $fas_deposit = $_POST['fas_deposit'] ?? 0;
     $renewed_fas = $_POST['renewed_fas'] ?? 0;
-    $contraband_kg = $_POST['contraband_kg'] ?? 0;
+    $contraband_kg = $_POST['contraband_kg'] ?? 0.00;
+    $operations_count = $_POST['operations_count'] ?? 1;
     
     // Checkpoint specific fields
     $border_control_ops = $_POST['border_control_ops'] ?? 0;
@@ -146,201 +152,218 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activity_type_db = '';
         
         // =========================================
-        // PATROL ACTIVITIES
+        // PATROL ACTIVITIES - COMPLETE FIX
         // =========================================
         if (in_array($activity_type, ['Foot Patrol', 'Mobile Patrol', 'Motorcycle Patrol'])) {
             
-            $stmt = $conn->prepare("
-                INSERT INTO patrol_activities (
-                    user_id, barangay_id, patrol_type, specific_location, 
-                    latitude, longitude, gps_accuracy, personnel_count, vehicle_number,
-                    patrol_date, patrol_time, accomplishment_description,
-                    drinking_violations, smoking_violations, halfnaked_violations,
-                    curfew_violations, vandalism_violations, other_violations, other_violations_desc,
-                    status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
-            ");
+            $sql = "INSERT INTO patrol_activities (
+                user_id, barangay_id, patrol_type, specific_location, 
+                latitude, longitude, gps_accuracy, personnel_count, vehicle_number,
+                patrol_date, patrol_time, accomplishment_description,
+                drinking_violations, smoking_violations, halfnaked_violations,
+                curfew_violations, vandalism_violations, other_violations, other_violations_desc,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')";
             
+            $stmt = $conn->prepare($sql);
+            
+            // 19 parameters
             $stmt->bind_param(
-                "iissssdissssiiiiiiiss", 
-                $user_id, 
-                $barangay_id, 
-                $activity_type, 
-                $specific_location,
-                $latitude, 
-                $longitude, 
-                $gps_accuracy, 
-                $personnel_count, 
-                $vehicle_number,
-                $activity_date, 
-                $activity_time, 
-                $accomplishment_description,
-                $drinking_violations,
-                $smoking_violations,
-                $halfnaked_violations,
-                $curfew_violations,
-                $vandalism_violations,
-                $other_violations,
-                $other_violations_desc
-            );
+    "iissdddissssiiiiiis",
+    $user_id,
+    $barangay_id,
+    $activity_type,
+    $specific_location,
+    $latitude,
+    $longitude,
+    $gps_accuracy,
+    $personnel_count,
+    $vehicle_number,
+    $activity_date,
+    $activity_time,
+    $accomplishment_description,
+    $drinking_violations,
+    $smoking_violations,
+    $halfnaked_violations,
+    $curfew_violations,
+    $vandalism_violations,
+    $other_violations,
+    $other_violations_desc
+);
             
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                throw new Exception("Patrol insert failed: " . $stmt->error);
+            }
+            
             $activity_id = $stmt->insert_id;
             $activity_type_db = 'patrol';
             $stmt->close();
             
         // =========================================
-        // CHECKPOINT ACTIVITIES (with disposition)
+        // CHECKPOINT ACTIVITIES - COMPLETE FIX
         // =========================================
         } elseif ($activity_type === 'checkpoint') {
             
-            $stmt = $conn->prepare("
-                INSERT INTO checkpoint_activities (
-                    user_id, barangay_id, specific_location, 
-                    checkpoint_date, checkpoint_time,
-                    border_control_ops, border_personnel, overlapping_ops,
-                    mobile_checkpoint_ops, mobile_personnel, 
-                    tct_ovr_accomplishment, arrested_accomplishment,
-                    accomplishment_description, latitude, longitude, gps_accuracy,
-                    drinking_violations, smoking_violations, halfnaked_violations,
-                    curfew_violations, vandalism_violations, other_violations, other_violations_desc,
-                    fixed_count, fined_count, warned_count, charged_count, community_service, disposition_others,
-                    status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
-            ");
+            $sql = "INSERT INTO checkpoint_activities (
+                user_id, barangay_id, specific_location, 
+                checkpoint_date, checkpoint_time,
+                border_control_ops, border_personnel, overlapping_ops,
+                mobile_checkpoint_ops, mobile_personnel, 
+                tct_ovr_accomplishment, arrested_accomplishment,
+                accomplishment_description, latitude, longitude, gps_accuracy,
+                drinking_violations, smoking_violations, halfnaked_violations,
+                curfew_violations, vandalism_violations, other_violations, other_violations_desc,
+                fixed_count, fined_count, warned_count, charged_count, community_service, disposition_others,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')";
             
-            $stmt->bind_param(
-                "iisssiiiiiiissddiiiiiiiiiiiis", 
-                $user_id, 
-                $barangay_id, 
-                $specific_location,
-                $activity_date, 
-                $activity_time,
-                $border_control_ops, 
-                $border_personnel, 
-                $overlapping_ops,
-                $mobile_checkpoint_ops, 
-                $mobile_personnel,
-                $tct_ovr_accomplishment, 
-                $arrested_accomplishment,
-                $accomplishment_description, 
-                $latitude, 
-                $longitude, 
-                $gps_accuracy,
-                $drinking_violations,
-                $smoking_violations,
-                $halfnaked_violations,
-                $curfew_violations,
-                $vandalism_violations,
-                $other_violations,
-                $other_violations_desc,
-                $fixed_count,
-                $fined_count,
-                $warned_count,
-                $charged_count,
-                $community_service,
-                $disposition_others
-            );
+            $stmt = $conn->prepare($sql);
             
-            $stmt->execute();
+            // 29 parameters
+$stmt->bind_param(
+"iisssiiiiiisdddiiiiiissiiiiis",
+$user_id,
+$barangay_id,
+$specific_location,
+$activity_date,
+$activity_time,
+$border_control_ops,
+$border_personnel,
+$overlapping_ops,
+$mobile_checkpoint_ops,
+$mobile_personnel,
+$tct_ovr_accomplishment,
+$arrested_accomplishment,
+$accomplishment_description,
+$latitude,
+$longitude,
+$gps_accuracy,
+$drinking_violations,
+$smoking_violations,
+$halfnaked_violations,
+$curfew_violations,
+$vandalism_violations,
+$other_violations,
+$other_violations_desc,
+$fixed_count,
+$fined_count,
+$warned_count,
+$charged_count,
+$community_service,
+$disposition_others
+);           
+            if (!$stmt->execute()) {
+                throw new Exception("Checkpoint insert failed: " . $stmt->error);
+            }
+            
             $activity_id = $stmt->insert_id;
             $activity_type_db = 'checkpoint';
             $stmt->close();
             
         // =========================================
-        // OPLAN BAKAL (Firearms focus)
+        // OPLAN BAKAL - WORKING
         // =========================================
         } elseif ($activity_type === 'Oplan Bakal') {
             
-            $stmt = $conn->prepare("
-                INSERT INTO oplan_activities (
-                    user_id, barangay_id, oplan_type, specific_location, 
-                    latitude, longitude, gps_accuracy, personnel_count, 
-                    arrests_made, house_visitations,
-                    firearms_seized, firearms_crs, fas_deposit, renewed_fas,
-                    oplan_date, oplan_time, accomplishment_description,
-                    status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
-            ");
+            $sql = "INSERT INTO oplan_activities (
+                user_id, barangay_id, oplan_type, specific_location, 
+                latitude, longitude, gps_accuracy, personnel_count, 
+                operations_count, arrests_made, house_visitations,
+                firearms_seized, firearms_crs, fas_deposit, renewed_fas,
+                oplan_date, oplan_time, accomplishment_description,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')";
             
+            $stmt = $conn->prepare($sql);
+            
+            // 18 parameters
             $stmt->bind_param(
-                "iissssdiidddsss", 
-                $user_id, 
-                $barangay_id, 
-                $activity_type, 
+                "iissssdiiddiiiisss", 
+                $user_id,
+                $barangay_id,
+                $activity_type,
                 $specific_location,
-                $latitude, 
-                $longitude, 
-                $gps_accuracy, 
+                $latitude,
+                $longitude,
+                $gps_accuracy,
                 $personnel_count,
+                $operations_count,
                 $arrests_made,
                 $house_visitations,
                 $firearms_seized,
                 $firearms_crs,
                 $fas_deposit,
                 $renewed_fas,
-                $activity_date, 
-                $activity_time, 
+                $activity_date,
+                $activity_time,
                 $accomplishment_description
             );
             
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                throw new Exception("Oplan Bakal insert failed: " . $stmt->error);
+            }
+            
             $activity_id = $stmt->insert_id;
             $activity_type_db = 'oplan';
             $stmt->close();
             
         // =========================================
-        // OPLAN SITA (Ordinance violations focus)
+        // OPLAN SITA - COMPLETE FIX
         // =========================================
         } elseif ($activity_type === 'Oplan Sita') {
             
-            $stmt = $conn->prepare("
-                INSERT INTO oplan_activities (
-                    user_id, barangay_id, oplan_type, specific_location, 
-                    latitude, longitude, gps_accuracy, personnel_count, 
-                    arrests_made, contraband_kg, kontra_boga, anti_vaping, house_visitations,
-                    drinking_violations, smoking_violations, halfnaked_violations,
-                    curfew_violations, vandalism_violations, other_violations, other_violations_desc,
-                    fixed_count, fined_count, warned_count, charged_count, community_service, disposition_others,
-                    oplan_date, oplan_time, accomplishment_description,
-                    status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
-            ");
+            $sql = "INSERT INTO oplan_activities (
+                user_id, barangay_id, oplan_type, specific_location, 
+                latitude, longitude, gps_accuracy, personnel_count, 
+                operations_count, arrests_made, contraband_kg, kontra_boga, anti_vaping, house_visitations,
+                drinking_violations, smoking_violations, halfnaked_violations,
+                curfew_violations, vandalism_violations, other_violations, other_violations_desc,
+                fixed_count, fined_count, warned_count, charged_count, community_service, disposition_others,
+                oplan_date, oplan_time, accomplishment_description,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')";
             
-            $stmt->bind_param(
-                "iissssdiiddiiiiiiiiiiiiiiisss", 
-                $user_id, 
-                $barangay_id, 
-                $activity_type, 
-                $specific_location,
-                $latitude, 
-                $longitude, 
-                $gps_accuracy, 
-                $personnel_count,
-                $arrests_made,
-                $contraband_kg,
-                $kontra_boga,
-                $anti_vaping,
-                $house_visitations,
-                $drinking_violations,
-                $smoking_violations,
-                $halfnaked_violations,
-                $curfew_violations,
-                $vandalism_violations,
-                $other_violations,
-                $other_violations_desc,
-                $fixed_count,
-                $fined_count,
-                $warned_count,
-                $charged_count,
-                $community_service,
-                $disposition_others,
-                $activity_date, 
-                $activity_time, 
-                $accomplishment_description
-            );
+            $stmt = $conn->prepare($sql);
             
-            $stmt->execute();
+            // 29 parameters
+$stmt->bind_param(
+"iissdddiiidiiiiiiiiisiiiiissss",
+$user_id,
+$barangay_id,
+$activity_type,
+$specific_location,
+$latitude,
+$longitude,
+$gps_accuracy,
+$personnel_count,
+$operations_count,
+$arrests_made,
+$contraband_kg,
+$kontra_boga,
+$anti_vaping,
+$house_visitations,
+$drinking_violations,
+$smoking_violations,
+$halfnaked_violations,
+$curfew_violations,
+$vandalism_violations,
+$other_violations,
+$other_violations_desc,
+$fixed_count,
+$fined_count,
+$warned_count,
+$charged_count,
+$community_service,
+$disposition_others,
+$activity_date,
+$activity_time,
+$accomplishment_description
+);
+            
+            if (!$stmt->execute()) {
+                throw new Exception("Oplan Sita insert failed: " . $stmt->error);
+            }
+            
             $activity_id = $stmt->insert_id;
             $activity_type_db = 'oplan';
             $stmt->close();
@@ -355,19 +378,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             foreach ($uploaded_photos as $photo_path) {
                 $photo_stmt->bind_param("sis", $activity_type_db, $activity_id, $photo_path);
-                $photo_stmt->execute();
+                if (!$photo_stmt->execute()) {
+                    throw new Exception("Photo insert failed: " . $photo_stmt->error);
+                }
             }
             $photo_stmt->close();
         }
         
         // Commit transaction
         $conn->commit();
-        $_SESSION['success'] = "Activity reported successfully! (Auto-Approved)";
+        $_SESSION['success'] = "Activity reported successfully!";
         
     } catch (Exception $e) {
         // Rollback transaction on error
         $conn->rollback();
         $_SESSION['error'] = "Failed to submit activity: " . $e->getMessage();
+        
+        // Log error for debugging
+        error_log("Activity submission error: " . $e->getMessage());
     }
     
     header('Location: user_dashboard.php');
