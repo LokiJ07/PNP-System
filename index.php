@@ -66,9 +66,9 @@ if (isset($_SESSION['user_id'])) {
                 LOGIN
             </button>
 
-            <a href="register.php" class="mt-3 text-black font-serif text-sm hover:underline">
-                Register & Create Account
-            </a>
+        <!--    <a href="register.php" class="mt-3 text-black font-serif text-sm hover:underline">
+                Register & Create Account  
+            </a>  -->
         </form>
     </div>
 </body>

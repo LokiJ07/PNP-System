@@ -2,6 +2,7 @@
 // =====================================================
 // FILE: admin/all_reports.php
 // PURPOSE: Display all reports with daily/monthly/yearly views
+// IMPROVED: Removed pending/rejected, added dispositions and violations
 // =====================================================
 
 session_start();
@@ -16,7 +17,6 @@ $selected_year = $_GET['year'] ?? date('Y');
 
 // Get filter parameters
 $type = $_GET['type'] ?? 'all';
-$status = $_GET['status'] ?? 'all';
 $barangay_id = isset($_GET['barangay_id']) ? (int)$_GET['barangay_id'] : 0;
 $officer_id = isset($_GET['officer_id']) ? (int)$_GET['officer_id'] : 0;
 $search = $_GET['search'] ?? '';
@@ -29,37 +29,77 @@ $officers = $conn->query("SELECT user_id, rank, first_name, last_name FROM users
 
 // ===== DAILY VIEW =====
 if ($view == 'daily') {
-    // Get reports for selected date
-    $date_condition = "DATE(submitted_at) = '$selected_date'";
+    // Get reports for selected date - ONLY APPROVED
+    $date_condition = "DATE(submitted_at) = '$selected_date' AND status = 'approved'";
     
     // Get summary for the day
     $summary_query = "
         SELECT 
             COUNT(*) as total_reports,
-            SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-            
             SUM(CASE WHEN report_type = 'patrol' THEN 1 ELSE 0 END) as patrols,
             SUM(CASE WHEN report_type = 'checkpoint' THEN 1 ELSE 0 END) as checkpoints,
             SUM(CASE WHEN report_type = 'oplan' THEN 1 ELSE 0 END) as oplans,
             
-            (SELECT COALESCE(SUM(arrested_accomplishment), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date') +
-            (SELECT COALESCE(SUM(arrests_made), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date') as total_arrests,
+            (SELECT COALESCE(SUM(arrested_accomplishment), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(arrests_made), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as total_arrests,
             
-            (SELECT COALESCE(SUM(firearms_seized), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date') as firearms,
-            (SELECT COALESCE(SUM(contraband_kg), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date') as contraband
+            (SELECT COALESCE(SUM(firearms_seized), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as firearms,
+            (SELECT COALESCE(SUM(contraband_kg), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as contraband,
+            
+            (SELECT COALESCE(SUM(fixed_count), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(fixed_count), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as total_fixed,
+            
+            (SELECT COALESCE(SUM(fined_count), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(fined_count), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as total_fined,
+            
+            (SELECT COALESCE(SUM(warned_count), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(warned_count), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as total_warned,
+            
+            (SELECT COALESCE(SUM(charged_count), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(charged_count), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as total_charged,
+            
+            (SELECT COALESCE(SUM(community_service), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(community_service), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as total_community
         FROM (
-            SELECT 'patrol' as report_type, status, submitted_at FROM patrol_activities
+            SELECT 'patrol' as report_type, submitted_at FROM patrol_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'checkpoint' as report_type, status, submitted_at FROM checkpoint_activities
+            SELECT 'checkpoint' as report_type, submitted_at FROM checkpoint_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'oplan' as report_type, status, submitted_at FROM oplan_activities
+            SELECT 'oplan' as report_type, submitted_at FROM oplan_activities WHERE status = 'approved'
         ) as all_reports
         WHERE DATE(submitted_at) = '$selected_date'
     ";
     
     $summary = $conn->query($summary_query)->fetch_assoc();
+    
+    // Get violations for the day
+    $violations_query = "
+        SELECT 
+            (SELECT COALESCE(SUM(drinking_violations), 0) FROM patrol_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(drinking_violations), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(drinking_violations), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as drinking,
+            
+            (SELECT COALESCE(SUM(smoking_violations), 0) FROM patrol_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(smoking_violations), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(smoking_violations), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as smoking,
+            
+            (SELECT COALESCE(SUM(halfnaked_violations), 0) FROM patrol_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(halfnaked_violations), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(halfnaked_violations), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as halfnaked,
+            
+            (SELECT COALESCE(SUM(curfew_violations), 0) FROM patrol_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(curfew_violations), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(curfew_violations), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as curfew,
+            
+            (SELECT COALESCE(SUM(vandalism_violations), 0) FROM patrol_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(vandalism_violations), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(vandalism_violations), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as vandalism,
+            
+            (SELECT COALESCE(SUM(other_violations), 0) FROM patrol_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(other_violations), 0) FROM checkpoint_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') +
+            (SELECT COALESCE(SUM(other_violations), 0) FROM oplan_activities WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved') as other
+    ";
+    $violations = $conn->query($violations_query)->fetch_assoc();
 }
 
 // ===== MONTHLY VIEW =====
@@ -71,25 +111,21 @@ if ($view == 'monthly') {
     $monthly_summary_query = "
         SELECT 
             COUNT(*) as total_reports,
-            SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-            
             SUM(CASE WHEN report_type = 'patrol' THEN 1 ELSE 0 END) as patrols,
             SUM(CASE WHEN report_type = 'checkpoint' THEN 1 ELSE 0 END) as checkpoints,
             SUM(CASE WHEN report_type = 'oplan' THEN 1 ELSE 0 END) as oplans,
             
-            (SELECT COALESCE(SUM(arrested_accomplishment), 0) FROM checkpoint_activities WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month) +
-            (SELECT COALESCE(SUM(arrests_made), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month) as total_arrests,
+            (SELECT COALESCE(SUM(arrested_accomplishment), 0) FROM checkpoint_activities WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month AND status = 'approved') +
+            (SELECT COALESCE(SUM(arrests_made), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month AND status = 'approved') as total_arrests,
             
-            (SELECT COALESCE(SUM(firearms_seized), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month) as firearms,
-            (SELECT COALESCE(SUM(contraband_kg), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month) as contraband
+            (SELECT COALESCE(SUM(firearms_seized), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month AND status = 'approved') as firearms,
+            (SELECT COALESCE(SUM(contraband_kg), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month AND status = 'approved') as contraband
         FROM (
-            SELECT 'patrol' as report_type, status, submitted_at FROM patrol_activities
+            SELECT 'patrol' as report_type, submitted_at FROM patrol_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'checkpoint' as report_type, status, submitted_at FROM checkpoint_activities
+            SELECT 'checkpoint' as report_type, submitted_at FROM checkpoint_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'oplan' as report_type, status, submitted_at FROM oplan_activities
+            SELECT 'oplan' as report_type, submitted_at FROM oplan_activities WHERE status = 'approved'
         ) as all_reports
         WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month
     ";
@@ -119,9 +155,9 @@ if ($view == 'monthly') {
             'patrols' => 0,
             'checkpoints' => 0,
             'oplans' => 0,
-            'approved' => 0,
-            'pending' => 0,
-            'rejected' => 0
+            'arrests' => 0,
+            'firearms' => 0,
+            'contraband' => 0
         ];
         
         $current = strtotime('+1 day', $current);
@@ -132,19 +168,15 @@ if ($view == 'monthly') {
         SELECT 
             DATE(submitted_at) as report_date,
             COUNT(*) as total_reports,
-            SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-            
             SUM(CASE WHEN report_type = 'patrol' THEN 1 ELSE 0 END) as patrols,
             SUM(CASE WHEN report_type = 'checkpoint' THEN 1 ELSE 0 END) as checkpoints,
             SUM(CASE WHEN report_type = 'oplan' THEN 1 ELSE 0 END) as oplans
         FROM (
-            SELECT 'patrol' as report_type, status, submitted_at FROM patrol_activities
+            SELECT 'patrol' as report_type, submitted_at FROM patrol_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'checkpoint' as report_type, status, submitted_at FROM checkpoint_activities
+            SELECT 'checkpoint' as report_type, submitted_at FROM checkpoint_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'oplan' as report_type, status, submitted_at FROM oplan_activities
+            SELECT 'oplan' as report_type, submitted_at FROM oplan_activities WHERE status = 'approved'
         ) as all_reports
         WHERE YEAR(submitted_at) = $year AND MONTH(submitted_at) = $month
         GROUP BY DATE(submitted_at)
@@ -160,9 +192,6 @@ if ($view == 'monthly') {
             $days_in_month[$date]['patrols'] = $row['patrols'];
             $days_in_month[$date]['checkpoints'] = $row['checkpoints'];
             $days_in_month[$date]['oplans'] = $row['oplans'];
-            $days_in_month[$date]['approved'] = $row['approved'];
-            $days_in_month[$date]['pending'] = $row['pending'];
-            $days_in_month[$date]['rejected'] = $row['rejected'];
         }
     }
 
@@ -193,10 +222,7 @@ if ($view == 'monthly') {
         'reports' => array_sum(array_column($days_in_month, 'reports')),
         'patrols' => array_sum(array_column($days_in_month, 'patrols')),
         'checkpoints' => array_sum(array_column($days_in_month, 'checkpoints')),
-        'oplans' => array_sum(array_column($days_in_month, 'oplans')),
-        'approved' => array_sum(array_column($days_in_month, 'approved')),
-        'pending' => array_sum(array_column($days_in_month, 'pending')),
-        'rejected' => array_sum(array_column($days_in_month, 'rejected'))
+        'oplans' => array_sum(array_column($days_in_month, 'oplans'))
     ];
 
     // Order of days for display
@@ -211,19 +237,15 @@ if ($view == 'yearly') {
             MONTH(submitted_at) as report_month,
             DATE_FORMAT(submitted_at, '%M') as month_name,
             COUNT(*) as total_reports,
-            SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-            
             SUM(CASE WHEN report_type = 'patrol' THEN 1 ELSE 0 END) as patrols,
             SUM(CASE WHEN report_type = 'checkpoint' THEN 1 ELSE 0 END) as checkpoints,
             SUM(CASE WHEN report_type = 'oplan' THEN 1 ELSE 0 END) as oplans
         FROM (
-            SELECT 'patrol' as report_type, status, submitted_at FROM patrol_activities
+            SELECT 'patrol' as report_type, submitted_at FROM patrol_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'checkpoint' as report_type, status, submitted_at FROM checkpoint_activities
+            SELECT 'checkpoint' as report_type, submitted_at FROM checkpoint_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'oplan' as report_type, status, submitted_at FROM oplan_activities
+            SELECT 'oplan' as report_type, submitted_at FROM oplan_activities WHERE status = 'approved'
         ) as all_reports
         WHERE YEAR(submitted_at) = $selected_year
         GROUP BY MONTH(submitted_at)
@@ -236,25 +258,21 @@ if ($view == 'yearly') {
     $yearly_summary_query = "
         SELECT 
             COUNT(*) as total_reports,
-            SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-            
             SUM(CASE WHEN report_type = 'patrol' THEN 1 ELSE 0 END) as patrols,
             SUM(CASE WHEN report_type = 'checkpoint' THEN 1 ELSE 0 END) as checkpoints,
             SUM(CASE WHEN report_type = 'oplan' THEN 1 ELSE 0 END) as oplans,
             
-            (SELECT COALESCE(SUM(arrested_accomplishment), 0) FROM checkpoint_activities WHERE YEAR(submitted_at) = $selected_year) +
-            (SELECT COALESCE(SUM(arrests_made), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $selected_year) as total_arrests,
+            (SELECT COALESCE(SUM(arrested_accomplishment), 0) FROM checkpoint_activities WHERE YEAR(submitted_at) = $selected_year AND status = 'approved') +
+            (SELECT COALESCE(SUM(arrests_made), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $selected_year AND status = 'approved') as total_arrests,
             
-            (SELECT COALESCE(SUM(firearms_seized), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $selected_year) as firearms,
-            (SELECT COALESCE(SUM(contraband_kg), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $selected_year) as contraband
+            (SELECT COALESCE(SUM(firearms_seized), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $selected_year AND status = 'approved') as firearms,
+            (SELECT COALESCE(SUM(contraband_kg), 0) FROM oplan_activities WHERE YEAR(submitted_at) = $selected_year AND status = 'approved') as contraband
         FROM (
-            SELECT 'patrol' as report_type, status, submitted_at FROM patrol_activities
+            SELECT 'patrol' as report_type, submitted_at FROM patrol_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'checkpoint' as report_type, status, submitted_at FROM checkpoint_activities
+            SELECT 'checkpoint' as report_type, submitted_at FROM checkpoint_activities WHERE status = 'approved'
             UNION ALL
-            SELECT 'oplan' as report_type, status, submitted_at FROM oplan_activities
+            SELECT 'oplan' as report_type, submitted_at FROM oplan_activities WHERE status = 'approved'
         ) as all_reports
         WHERE YEAR(submitted_at) = $selected_year
     ";
@@ -264,14 +282,18 @@ if ($view == 'yearly') {
 
 // Get available years for dropdown
 $years_query = "
-    SELECT DISTINCT YEAR(submitted_at) as year FROM patrol_activities
+    SELECT DISTINCT YEAR(submitted_at) as year FROM patrol_activities WHERE status = 'approved'
     UNION
-    SELECT DISTINCT YEAR(submitted_at) as year FROM checkpoint_activities
+    SELECT DISTINCT YEAR(submitted_at) as year FROM checkpoint_activities WHERE status = 'approved'
     UNION
-    SELECT DISTINCT YEAR(submitted_at) as year FROM oplan_activities
+    SELECT DISTINCT YEAR(submitted_at) as year FROM oplan_activities WHERE status = 'approved'
     ORDER BY year DESC
 ";
 $years = $conn->query($years_query);
+
+// Admin info for sidebar
+$admin_name = $_SESSION['full_name'] ?? 'Admin';
+$admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
 ?>
 
 <!DOCTYPE html>
@@ -281,15 +303,65 @@ $years = $conn->query($years_query);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="../image/pnplogo.png">
     <title>PNP | All Reports</title>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
     <style>
-        .dropdown-content { display: none; }
-        .dropdown.active .dropdown-content { display: block; }
-        .rotate-180 { transform: rotate(180deg); transition: transform 0.3s; }
+        /* Dropdown styles */
+        .dropdown-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .dropdown.active .dropdown-content {
+            max-height: 300px;
+            transition: max-height 0.5s ease-in;
+        }
+        .rotate-180 {
+            transform: rotate(180deg);
+            transition: transform 0.3s ease;
+        }
         
+        /* Sidebar scrollbar */
+        .sidebar-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #1e4a6a #08324f;
+        }
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: #08324f;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background-color: #1e4a6a;
+            border-radius: 20px;
+        }
+        
+        /* Mobile menu */
+        @media (max-width: 768px) {
+            .sidebar-mobile {
+                position: fixed;
+                left: -100%;
+                transition: left 0.3s ease;
+                z-index: 50;
+                width: 280px;
+                height: 100vh;
+            }
+            .sidebar-mobile.open {
+                left: 0;
+            }
+            .main-content-mobile {
+                width: 100%;
+                margin-left: 0;
+            }
+        }
+        
+        /* View tabs */
         .view-tab {
             padding: 0.75rem 1.5rem;
             border-radius: 0.5rem 0.5rem 0 0;
@@ -312,57 +384,62 @@ $years = $conn->query($years_query);
             background: #cbd5e0;
         }
         
+        /* Card styles */
         .stat-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.25rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border-left: 4px solid #08324f;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
+            border-left-width: 4px;
         }
         .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
         }
         
+        /* Table styles */
         .table-container {
             overflow-x: auto;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-radius: 0.5rem;
         }
-        
         table {
             width: 100%;
             border-collapse: collapse;
         }
-        
         th {
             background: #08324f;
             color: white;
-            padding: 14px 10px;
+            padding: 0.75rem 0.5rem;
             font-weight: 600;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
             font-size: 0.9rem;
-            text-align: left;
+        }
+        tr:hover {
+            background-color: #f9fafb;
+        }
+        
+        /* Badge styles */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
             white-space: nowrap;
         }
         
-        td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #e2e8f0;
+        /* Filter card */
+        .filter-card {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 1rem;
         }
         
-        tr:hover {
-            background: #f7fafc;
-        }
-        
-        .badge {
-            padding: 4px 10px;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            display: inline-block;
-        }
-        
+        /* Calendar day */
         .calendar-day {
             transition: all 0.2s;
             min-height: 100px;
@@ -372,6 +449,7 @@ $years = $conn->query($years_query);
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         
+        /* Print styles */
         @media print {
             .no-print, .sidebar, .view-tabs, .filter-section, button, .dropdown {
                 display: none !important;
@@ -381,143 +459,150 @@ $years = $conn->query($years_query);
         }
     </style>
 </head>
-<body class="flex bg-[#0a3d62]">
+<body class="flex flex-col md:flex-row bg-[#08324f] min-h-screen">
+
+    <!-- Mobile Menu Button -->
+    <button id="mobileMenuBtn" class="md:hidden fixed top-4 left-4 z-50 bg-[#1e4a6a] text-white p-3 rounded-lg shadow-lg no-print">
+        <i class="fas fa-bars text-xl"></i>
+    </button>
+
+    <!-- Mobile Menu Overlay -->
+    <div id="menuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden no-print" onclick="closeMobileMenu()"></div>
 
     <!-- Sidebar -->
-    <div class="w-[240px] h-screen bg-[#08324f] text-white p-5 sticky top-0 overflow-y-auto no-print">
-        <div class="flex items-center gap-3 mb-6 pb-3 border-b border-[#1a4b6d]">
-            <img src="../image/pnplogo.png" class="w-8 h-8 object-contain" alt="PNP Logo">
-            <h2 class="text-xl font-semibold">PNP Admin</h2>
+    <div id="sidebar" class="w-full md:w-[260px] bg-[#08324f] text-white h-screen overflow-y-auto sidebar-scroll sidebar-mobile fixed top-0 left-[-100%] md:left-0 md:sticky z-50 transition-all duration-300 ease-in-out no-print">
+        
+        <button id="closeSidebar" class="md:hidden absolute top-4 right-4 text-white text-xl">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <!-- Logo and Title -->
+        <div class="flex items-center gap-3 p-5 border-b border-[#1e4a6a] sticky top-0 bg-[#08324f] z-10">
+            <img src="../image/pnplogo.png" class="w-10 h-10 object-contain" alt="PNP Logo">
+            <div>
+                <h2 class="text-lg font-semibold leading-tight">PNP Operation</h2>
+                <p class="text-xs text-yellow-400">Admin Panel</p>
+            </div>
         </div>
 
-        <div class="bg-[#1e4a6a] p-3 rounded-lg mb-4 text-center">
-            <p class="text-sm text-yellow-400 font-medium"><?php echo $_SESSION['full_name'] ?? 'Admin'; ?></p>
-            <p class="text-xs text-gray-300 mt-1"><?php echo $_SESSION['email'] ?? 'admin@pnp.gov.ph'; ?></p>
+        <!-- Admin Info -->
+        <div class="bg-[#1e4a6a] mx-4 my-4 p-4 rounded-lg text-center shadow-lg">
+            <div class="w-16 h-16 bg-yellow-400 rounded-full mx-auto mb-3 flex items-center justify-center text-[#08324f] text-2xl font-bold">
+                <?php echo substr($admin_name, 0, 1); ?>
+            </div>
+            <p class="font-medium text-yellow-400"><?php echo $admin_name; ?></p>
+            <p class="text-xs text-gray-300 mt-1 break-all"><?php echo $admin_email; ?></p>
         </div>
 
-        <ul class="space-y-1">
-            <li class="p-3 rounded hover:bg-[#0a3d62]"><a href="admin_dashboard.php" class="text-white no-underline block"><i class="fas fa-tachometer-alt mr-3"></i>Dashboard</a></li>
-            <li class="p-3 rounded hover:bg-[#0a3d62]"><a href="checkpoint.php" class="text-white no-underline block"><i class="fas fa-map-marker-alt mr-3"></i>Checkpoint</a></li>
+        <!-- Navigation Menu -->
+        <ul class="space-y-1 px-3 pb-5">
+            <li><a href="admin_dashboard.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-tachometer-alt w-5"></i> Dashboard</a></li>
+            <li><a href="checkpoint.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-map-marker-alt w-5"></i> Checkpoint</a></li>
+            
             <li class="dropdown">
-                <div class="p-3 rounded hover:bg-[#0a3d62] cursor-pointer flex items-center justify-between" onclick="toggleDropdown(this)">
-                    <span><i class="fas fa-walking mr-3"></i>Patrol</span>
-                    <i class="fas fa-chevron-down text-xs transition-transform"></i>
+                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-[#1e4a6a] cursor-pointer transition" onclick="toggleDropdown(this)">
+                    <div class="flex items-center gap-3"><i class="fas fa-walking w-5"></i> Patrol</div>
+                    <i class="fas fa-chevron-down text-xs transition-transform duration-300"></i>
                 </div>
-                <ul class="pl-8 mt-1 space-y-1 dropdown-content">
-                    <li class="py-2 px-3 text-sm hover:bg-[#0a3d62] rounded"><a href="footpatrol.php" class="text-white no-underline block">Foot Patrol</a></li>
-                    <li class="py-2 px-3 text-sm hover:bg-[#0a3d62] rounded"><a href="mobilepatrol.php" class="text-white no-underline block">Mobile Patrol</a></li>
-                    <li class="py-2 px-3 text-sm hover:bg-[#0a3d62] rounded"><a href="motorpatrol.php" class="text-white no-underline block">Motor Patrol</a></li>
+                <ul class="dropdown-content pl-4 ml-4 space-y-1 border-l border-[#1e4a6a]">
+                    <li><a href="footpatrol.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Foot Patrol</a></li>
+                    <li><a href="mobilepatrol.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Mobile Patrol</a></li>
+                    <li><a href="motorpatrol.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Motor Patrol</a></li>
                 </ul>
             </li>
+            
             <li class="dropdown">
-                <div class="p-3 rounded hover:bg-[#0a3d62] cursor-pointer flex items-center justify-between" onclick="toggleDropdown(this)">
-                    <span><i class="fas fa-shield-alt mr-3"></i>Oplan</span>
-                    <i class="fas fa-chevron-down text-xs transition-transform"></i>
+                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-[#1e4a6a] cursor-pointer transition" onclick="toggleDropdown(this)">
+                    <div class="flex items-center gap-3"><i class="fas fa-shield-alt w-5"></i> Oplan</div>
+                    <i class="fas fa-chevron-down text-xs transition-transform duration-300"></i>
                 </div>
-                <ul class="pl-8 mt-1 space-y-1 dropdown-content">
-                    <li class="py-2 px-3 text-sm hover:bg-[#0a3d62] rounded"><a href="oplanbakal.php" class="text-white no-underline block">Oplan Bakal</a></li>
-                    <li class="py-2 px-3 text-sm hover:bg-[#0a3d62] rounded"><a href="oplansita.php" class="text-white no-underline block">Oplan Sita</a></li>
+                <ul class="dropdown-content pl-4 ml-4 space-y-1 border-l border-[#1e4a6a]">
+                    <li><a href="oplanbakal.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Oplan Bakal</a></li>
+                    <li><a href="oplansita.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Oplan Sita</a></li>
                 </ul>
             </li>
-            <li class="p-3 rounded hover:bg-[#0a3d62]"><a href="admin_users.php" class="text-white no-underline block"><i class="fas fa-users mr-3"></i>Users</a></li>
-            <li class="p-3 rounded hover:bg-[#0a3d62]"><a href="accomplishment_report.php" class="text-white no-underline block"><i class="fas fa-file-alt mr-3"></i>Accomplishment Report</a></li>
-            <li class="p-3 rounded bg-[#0a3d62] border-l-4 border-yellow-400"><a href="all_reports.php" class="text-white no-underline block"><i class="fas fa-list mr-3"></i>All Reports</a></li>
-            <li class="p-3 rounded hover:bg-[#0a3d62] mt-5 pt-4 border-t border-[#1a4b6d]"><a href="../logout.php" class="text-white no-underline block"><i class="fas fa-sign-out-alt mr-3"></i>Logout</a></li>
+            
+            <li><a href="admin_users.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-users w-5"></i> Users</a></li>
+            <li><a href="accomplishment_report.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-file-alt w-5"></i> Accomplishment Report</a></li>
+            <li class="bg-[#1e4a6a] rounded-lg"><a href="all_reports.php" class="flex items-center gap-3 p-3"><i class="fas fa-folder-open w-5 text-yellow-400"></i> All Reports</a></li>
+            <li><a href="activity_logs.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-history w-5"></i> Activity Logs</a></li>
+            
+            <li class="my-4 border-t border-[#1e4a6a]"></li>
+            <li><a href="../logout.php" class="flex items-center gap-3 p-3 rounded-lg bg-red-600 hover:bg-red-700 transition"><i class="fas fa-sign-out-alt w-5"></i> Logout</a></li>
+            
+            <li class="mt-6 text-center text-xs text-gray-400">
+                <p>PNP Manolo Fortich v2.0</p>
+                <p class="mt-1">© 2026 All Rights Reserved</p>
+            </li>
         </ul>
     </div>
 
     <!-- Main Content -->
-    <div class="flex-1 p-6 bg-[#eef2f6] overflow-y-auto h-screen">
+    <div class="flex-1 p-4 md:p-6 bg-[#eef2f6] overflow-y-auto min-h-screen main-content-mobile">
         
         <!-- Header -->
-        <div class="bg-white p-4 rounded-lg shadow-md mb-4 border-l-4 border-yellow-400 flex justify-between items-center no-print">
+        <div class="bg-white p-4 md:p-6 rounded-lg shadow-md mb-4 border-l-4 border-yellow-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
             <div>
-                <h2 class="text-2xl font-bold text-[#08324f]">📋 All Reports</h2>
-                <p class="text-gray-600">View reports by day, month, or year</p>
+                <h2 class="text-xl md:text-2xl font-bold text-[#08324f] flex items-center gap-2">
+                    <i class="fas fa-folder-open text-yellow-500"></i>
+                    All Reports
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">All reports are automatically approved</p>
             </div>
-            <div class="flex gap-2">
-                <button onclick="exportToCSV('reports-table', 'reports-<?php echo date('Y-m-d'); ?>.csv')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2">
-                    <i class="fas fa-file-csv"></i> Export CSV
-                </button>
-                <button onclick="printReport()" class="bg-[#1f6fb2] text-white px-4 py-2 rounded-lg hover:bg-[#0a3d62] transition flex items-center gap-2">
-                    <i class="fas fa-print"></i> Print
-                </button>
+            <div class="bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-semibold">
+                <i class="fas fa-check-circle mr-1"></i> Auto-Approved
             </div>
         </div>
 
         <!-- View Tabs -->
         <div class="flex gap-1 mb-4 no-print">
             <a href="?view=daily&date=<?php echo $selected_date; ?>" class="view-tab <?php echo $view == 'daily' ? 'active' : 'inactive'; ?>">
-                <i class="fas fa-calendar-day mr-2"></i>Daily View
+                <i class="fas fa-calendar-day mr-2"></i>Daily
             </a>
             <a href="?view=monthly&month=<?php echo $selected_month; ?>" class="view-tab <?php echo $view == 'monthly' ? 'active' : 'inactive'; ?>">
-                <i class="fas fa-calendar-alt mr-2"></i>Monthly View
+                <i class="fas fa-calendar-alt mr-2"></i>Monthly
             </a>
             <a href="?view=yearly&year=<?php echo $selected_year; ?>" class="view-tab <?php echo $view == 'yearly' ? 'active' : 'inactive'; ?>">
-                <i class="fas fa-calendar mr-2"></i>Yearly View
+                <i class="fas fa-calendar mr-2"></i>Yearly
             </a>
         </div>
 
-        <!-- Date Selector with Navigation -->
-        <div class="bg-white p-4 rounded-lg shadow-md mb-4 no-print">
+        <!-- Date Selector -->
+        <div class="filter-card no-print">
             <form method="GET" class="flex flex-wrap items-end gap-3">
                 <input type="hidden" name="view" value="<?php echo $view; ?>">
                 
                 <?php if ($view == 'daily'): ?>
-                <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="changeDate(-1, '<?php echo $selected_date; ?>', 'daily')" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <input type="date" name="date" value="<?php echo $selected_date; ?>" class="flex-1 p-2 border border-gray-300 rounded-lg">
-                        <button type="button" onclick="changeDate(1, '<?php echo $selected_date; ?>', 'daily')" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
+                <div class="flex-1 min-w-[250px]">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Select Date</label>
+                    <input type="date" name="date" value="<?php echo $selected_date; ?>" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1f6fb2]">
                 </div>
                 
                 <?php elseif ($view == 'monthly'): ?>
-                <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Select Month</label>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="changeDate(-1, '<?php echo $selected_month; ?>-01', 'monthly')" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <input type="month" name="month" value="<?php echo $selected_month; ?>" class="flex-1 p-2 border border-gray-300 rounded-lg">
-                        <button type="button" onclick="changeDate(1, '<?php echo $selected_month; ?>-01', 'monthly')" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
+                <div class="flex-1 min-w-[250px]">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Select Month</label>
+                    <input type="month" name="month" value="<?php echo $selected_month; ?>" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
                 </div>
                 
                 <?php elseif ($view == 'yearly'): ?>
-                <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Select Year</label>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="changeDate(-1, '<?php echo $selected_year; ?>-01-01', 'yearly')" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <select name="year" class="flex-1 p-2 border border-gray-300 rounded-lg">
-                            <?php 
-                            $years->data_seek(0);
-                            while ($year = $years->fetch_assoc()): 
-                            ?>
-                            <option value="<?php echo $year['year']; ?>" <?php echo $selected_year == $year['year'] ? 'selected' : ''; ?>>
-                                <?php echo $year['year']; ?>
-                            </option>
-                            <?php endwhile; ?>
-                        </select>
-                        <button type="button" onclick="changeDate(1, '<?php echo $selected_year; ?>-01-01', 'yearly')" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
+                <div class="flex-1 min-w-[250px]">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Select Year</label>
+                    <select name="year" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                        <?php 
+                        $years->data_seek(0);
+                        while ($year = $years->fetch_assoc()): 
+                        ?>
+                        <option value="<?php echo $year['year']; ?>" <?php echo $selected_year == $year['year'] ? 'selected' : ''; ?>>
+                            <?php echo $year['year']; ?>
+                        </option>
+                        <?php endwhile; ?>
+                    </select>
                 </div>
                 <?php endif; ?>
                 
                 <div>
-                    <button type="submit" class="bg-[#1f6fb2] text-white px-6 py-2 rounded-lg hover:bg-[#0a3d62] transition">
-                        <i class="fas fa-search mr-2"></i> Go
+                    <button type="submit" class="px-4 py-2 bg-[#1f6fb2] text-white rounded-lg hover:bg-[#0a3d62] transition text-sm">
+                        <i class="fas fa-search mr-1"></i> Go
                     </button>
                 </div>
             </form>
@@ -528,54 +613,69 @@ $years = $conn->query($years_query);
         
         <!-- Daily Summary Cards -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div class="stat-card" data-tooltip="Selected date">
-                <p class="text-sm text-gray-500">📅 Date</p>
-                <p class="text-xl font-bold"><?php echo date('F d, Y', strtotime($selected_date)); ?></p>
-                <p class="text-sm text-gray-500"><?php echo date('l', strtotime($selected_date)); ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-blue-500">
+                <p class="text-xs text-gray-500">📅 Date</p>
+                <p class="text-lg font-bold text-[#08324f]"><?php echo date('F d, Y', strtotime($selected_date)); ?></p>
+                <p class="text-xs text-gray-500"><?php echo date('l', strtotime($selected_date)); ?></p>
             </div>
-            <div class="stat-card" data-tooltip="Total reports submitted">
-                <p class="text-sm text-gray-500">📊 Total Reports</p>
-                <p class="text-2xl font-bold"><?php echo $summary['total_reports'] ?? 0; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-green-500">
+                <p class="text-xs text-gray-500">📊 Total Reports</p>
+                <p class="text-2xl font-bold text-[#08324f]"><?php echo $summary['total_reports'] ?? 0; ?></p>
             </div>
-            <div class="stat-card" data-tooltip="Total arrests made">
-                <p class="text-sm text-gray-500">🚔 Arrests</p>
-                <p class="text-2xl font-bold"><?php echo $summary['total_arrests'] ?? 0; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-red-500">
+                <p class="text-xs text-gray-500">🚔 Arrests</p>
+                <p class="text-2xl font-bold text-[#08324f]"><?php echo $summary['total_arrests'] ?? 0; ?></p>
             </div>
-            <div class="stat-card" data-tooltip="Firearms seized / Contraband">
-                <p class="text-sm text-gray-500">🔫 Firearms / Contraband</p>
-                <p class="text-lg font-bold"><?php echo $summary['firearms'] ?? 0; ?> / <?php echo number_format($summary['contraband'] ?? 0, 2); ?> kg</p>
-            </div>
-        </div>
-
-        <!-- Status Breakdown -->
-        <div class="grid grid-cols-3 gap-3 mb-4">
-            <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
-                <p class="text-xs text-gray-600">✅ Approved</p>
-                <p class="text-2xl font-bold text-green-700"><?php echo $summary['approved'] ?? 0; ?></p>
-            </div>
-            <div class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
-                <p class="text-xs text-gray-600">⏳ Pending</p>
-                <p class="text-2xl font-bold text-yellow-700"><?php echo $summary['pending'] ?? 0; ?></p>
-            </div>
-            <div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
-                <p class="text-xs text-gray-600">❌ Rejected</p>
-                <p class="text-2xl font-bold text-red-700"><?php echo $summary['rejected'] ?? 0; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-purple-500">
+                <p class="text-xs text-gray-500">🔫 Firearms / Contraband</p>
+                <p class="text-lg font-bold text-[#08324f]"><?php echo $summary['firearms'] ?? 0; ?> / <?php echo number_format($summary['contraband'] ?? 0, 2); ?> kg</p>
             </div>
         </div>
 
         <!-- Type Breakdown -->
-        <div class="grid grid-cols-3 gap-3 mb-6">
-            <div class="bg-blue-50 p-4 rounded-lg">
+        <div class="grid grid-cols-3 gap-3 mb-4">
+            <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
                 <p class="text-xs text-gray-600">🚶 Patrols</p>
                 <p class="text-2xl font-bold text-blue-700"><?php echo $summary['patrols'] ?? 0; ?></p>
             </div>
-            <div class="bg-red-50 p-4 rounded-lg">
+            <div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
                 <p class="text-xs text-gray-600">🚧 Checkpoints</p>
                 <p class="text-2xl font-bold text-red-700"><?php echo $summary['checkpoints'] ?? 0; ?></p>
             </div>
-            <div class="bg-green-50 p-4 rounded-lg">
+            <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
                 <p class="text-xs text-gray-600">🛡️ Oplans</p>
                 <p class="text-2xl font-bold text-green-700"><?php echo $summary['oplans'] ?? 0; ?></p>
+            </div>
+        </div>
+
+        <!-- Disposition Summary -->
+        <div class="bg-white p-4 rounded-lg shadow-md mb-4">
+            <h3 class="text-sm font-semibold text-[#08324f] mb-3 flex items-center gap-2">
+                <i class="fas fa-balance-scale text-yellow-500"></i>
+                Disposition Summary
+            </h3>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div><span class="text-xs text-gray-500">Fixed:</span> <span class="font-bold"><?php echo $summary['total_fixed'] ?? 0; ?></span></div>
+                <div><span class="text-xs text-gray-500">Fined:</span> <span class="font-bold"><?php echo $summary['total_fined'] ?? 0; ?></span></div>
+                <div><span class="text-xs text-gray-500">Warned:</span> <span class="font-bold"><?php echo $summary['total_warned'] ?? 0; ?></span></div>
+                <div><span class="text-xs text-gray-500">Charged:</span> <span class="font-bold"><?php echo $summary['total_charged'] ?? 0; ?></span></div>
+                <div><span class="text-xs text-gray-500">Community:</span> <span class="font-bold"><?php echo $summary['total_community'] ?? 0; ?></span></div>
+            </div>
+        </div>
+
+        <!-- Violations Summary -->
+        <div class="bg-white p-4 rounded-lg shadow-md mb-4">
+            <h3 class="text-sm font-semibold text-[#08324f] mb-3 flex items-center gap-2">
+                <i class="fas fa-gavel text-yellow-500"></i>
+                Ordinance Violations
+            </h3>
+            <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+                <div><span class="text-xs text-gray-500">Drinking:</span> <span class="font-bold"><?php echo $violations['drinking'] ?? 0; ?></span></div>
+                <div><span class="text-xs text-gray-500">Smoking:</span> <span class="font-bold"><?php echo $violations['smoking'] ?? 0; ?></span></div>
+                <div><span class="text-xs text-gray-500">Half-Naked:</span> <span class="font-bold"><?php echo $violations['halfnaked'] ?? 0; ?></span></div>
+                <div><span class="text-xs text-gray-500">Curfew:</span> <span class="font-bold"><?php echo $violations['curfew'] ?? 0; ?></span></div>
+                <div><span class="text-xs text-gray-500">Vandalism:</span> <span class="font-bold"><?php echo $violations['vandalism'] ?? 0; ?></span></div>
+                <div><span class="text-xs text-gray-500">Other:</span> <span class="font-bold"><?php echo $violations['other'] ?? 0; ?></span></div>
             </div>
         </div>
 
@@ -588,12 +688,11 @@ $years = $conn->query($years_query);
                 patrol_type as subtype,
                 specific_location,
                 submitted_at,
-                status,
                 user_id,
                 barangay_id,
                 accomplishment_description
             FROM patrol_activities
-            WHERE DATE(submitted_at) = '$selected_date'
+            WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved'
             
             UNION ALL
             
@@ -603,12 +702,11 @@ $years = $conn->query($years_query);
                 'Checkpoint' as subtype,
                 specific_location,
                 submitted_at,
-                status,
                 user_id,
                 barangay_id,
                 accomplishment_description
             FROM checkpoint_activities
-            WHERE DATE(submitted_at) = '$selected_date'
+            WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved'
             
             UNION ALL
             
@@ -618,12 +716,11 @@ $years = $conn->query($years_query);
                 oplan_type as subtype,
                 specific_location,
                 submitted_at,
-                status,
                 user_id,
                 barangay_id,
                 accomplishment_description
             FROM oplan_activities
-            WHERE DATE(submitted_at) = '$selected_date'
+            WHERE DATE(submitted_at) = '$selected_date' AND status = 'approved'
             
             ORDER BY submitted_at DESC
         ";
@@ -632,30 +729,26 @@ $years = $conn->query($years_query);
         ?>
 
         <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            <div class="p-4 bg-gray-100 border-b font-semibold flex justify-between items-center">
+            <div class="p-4 bg-gray-100 border-b font-semibold">
                 <span><i class="fas fa-list mr-2 text-[#08324f]"></i> Detailed Reports for <?php echo date('F d, Y', strtotime($selected_date)); ?></span>
-                <div class="flex gap-2">
-                    <input type="text" id="dailySearch" placeholder="Search reports..." class="px-3 py-1 border rounded-lg text-sm" onkeyup="filterTable('dailySearch', 'daily-table')">
-                </div>
             </div>
             <div class="table-container">
-                <table id="daily-table">
+                <table>
                     <thead>
                         <tr>
-                            <th onclick="sortTable(0, 'daily-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Time <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(1, 'daily-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Type <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(2, 'daily-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Officer <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(3, 'daily-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Barangay <i class="fas fa-sort ml-1 text-xs"></i></th>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Officer</th>
+                            <th>Barangay</th>
                             <th>Location</th>
-                            <th onclick="sortTable(5, 'daily-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Status <i class="fas fa-sort ml-1 text-xs"></i></th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if ($detailed_reports->num_rows == 0): ?>
                         <tr>
-                            <td colspan="7" class="p-8 text-center text-gray-500">
-                                <i class="fas fa-folder-open text-4xl mb-3"></i>
+                            <td colspan="6" class="p-8 text-center text-gray-500">
+                                <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
                                 <p>No reports for this day</p>
                             </td>
                         </tr>
@@ -674,7 +767,7 @@ $years = $conn->query($years_query);
                             $barangay_name = $barangay ? $barangay['barangay_name'] : 'Unknown';
                         ?>
                         <tr>
-                            <td><?php echo date('h:i A', strtotime($report['submitted_at'])); ?></td>
+                            <td class="whitespace-nowrap"><?php echo date('h:i A', strtotime($report['submitted_at'])); ?></td>
                             <td>
                                 <span class="badge 
                                     <?php echo $report['report_type'] == 'patrol' ? 'bg-blue-100 text-blue-800' : ($report['report_type'] == 'checkpoint' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'); ?>">
@@ -690,23 +783,10 @@ $years = $conn->query($years_query);
                                 <?php echo htmlspecialchars($report['specific_location']); ?>
                             </td>
                             <td>
-                                <span class="badge 
-                                    <?php echo $report['status'] == 'approved' ? 'bg-green-100 text-green-800' : ($report['status'] == 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'); ?>">
-                                    <?php echo ucfirst($report['status']); ?>
-                                </span>
-                            </td>
-                            <td>
-                                <button onclick="toggleDetails(<?php echo $report['id']; ?>)" class="text-blue-600 hover:text-blue-800">
-                                    <i id="icon-<?php echo $report['id']; ?>" class="fas fa-chevron-down"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        <tr id="details-<?php echo $report['id']; ?>" class="hidden bg-gray-50">
-                            <td colspan="7" class="p-4">
-                                <div class="text-sm">
-                                    <p class="font-semibold mb-2">📝 Accomplishment Description:</p>
-                                    <p class="text-gray-700"><?php echo nl2br(htmlspecialchars($report['accomplishment_description'])); ?></p>
-                                </div>
+                                <a href="view_report.php?type=<?php echo $report['report_type']; ?>&id=<?php echo $report['id']; ?>" 
+                                   class="bg-[#1f6fb2] text-white px-3 py-1 rounded text-xs hover:bg-[#0a3d62] transition inline-flex items-center gap-1">
+                                    <i class="fas fa-eye"></i> View
+                                </a>
                             </td>
                         </tr>
                         <?php endwhile; ?>
@@ -721,131 +801,83 @@ $years = $conn->query($years_query);
 
         <!-- Monthly Summary Cards -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div class="stat-card">
-                <p class="text-sm text-gray-500">📅 Month</p>
-                <p class="text-xl font-bold"><?php echo date('F Y', strtotime($selected_month . '-01')); ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-blue-500">
+                <p class="text-xs text-gray-500">📅 Month</p>
+                <p class="text-lg font-bold text-[#08324f]"><?php echo date('F Y', strtotime($selected_month . '-01')); ?></p>
             </div>
-            <div class="stat-card">
-                <p class="text-sm text-gray-500">📊 Total Reports</p>
-                <p class="text-2xl font-bold"><?php echo $month_totals['reports']; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-green-500">
+                <p class="text-xs text-gray-500">📊 Total Reports</p>
+                <p class="text-2xl font-bold text-[#08324f]"><?php echo $month_totals['reports']; ?></p>
             </div>
-            <div class="stat-card">
-                <p class="text-sm text-gray-500">🚔 Arrests</p>
-                <p class="text-2xl font-bold"><?php echo $monthly_summary['total_arrests'] ?? 0; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-red-500">
+                <p class="text-xs text-gray-500">🚔 Arrests</p>
+                <p class="text-2xl font-bold text-[#08324f]"><?php echo $monthly_summary['total_arrests'] ?? 0; ?></p>
             </div>
-            <div class="stat-card">
-                <p class="text-sm text-gray-500">🔫 Firearms / Contraband</p>
-                <p class="text-lg font-bold"><?php echo $monthly_summary['firearms'] ?? 0; ?> / <?php echo number_format($monthly_summary['contraband'] ?? 0, 2); ?> kg</p>
-            </div>
-        </div>
-
-        <!-- Monthly Status Summary -->
-        <div class="grid grid-cols-3 gap-3 mb-4">
-            <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
-                <p class="text-xs text-gray-600">✅ Approved</p>
-                <p class="text-2xl font-bold text-green-700"><?php echo $month_totals['approved']; ?></p>
-            </div>
-            <div class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
-                <p class="text-xs text-gray-600">⏳ Pending</p>
-                <p class="text-2xl font-bold text-yellow-700"><?php echo $month_totals['pending']; ?></p>
-            </div>
-            <div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
-                <p class="text-xs text-gray-600">❌ Rejected</p>
-                <p class="text-2xl font-bold text-red-700"><?php echo $month_totals['rejected']; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-purple-500">
+                <p class="text-xs text-gray-500">🔫 Firearms / Contraband</p>
+                <p class="text-lg font-bold text-[#08324f]"><?php echo $monthly_summary['firearms'] ?? 0; ?> / <?php echo number_format($monthly_summary['contraband'] ?? 0, 2); ?> kg</p>
             </div>
         </div>
 
         <!-- Monthly Type Summary -->
-        <div class="grid grid-cols-3 gap-3 mb-6">
-            <div class="bg-blue-50 p-4 rounded-lg">
+        <div class="grid grid-cols-3 gap-3 mb-4">
+            <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
                 <p class="text-xs text-gray-600">🚶 Patrols</p>
                 <p class="text-2xl font-bold text-blue-700"><?php echo $month_totals['patrols']; ?></p>
             </div>
-            <div class="bg-red-50 p-4 rounded-lg">
+            <div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
                 <p class="text-xs text-gray-600">🚧 Checkpoints</p>
                 <p class="text-2xl font-bold text-red-700"><?php echo $month_totals['checkpoints']; ?></p>
             </div>
-            <div class="bg-green-50 p-4 rounded-lg">
+            <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
                 <p class="text-xs text-gray-600">🛡️ Oplans</p>
                 <p class="text-2xl font-bold text-green-700"><?php echo $month_totals['oplans']; ?></p>
             </div>
         </div>
 
-        <!-- CALENDAR STYLE WEEKLY TABLE -->
+        <!-- Calendar View -->
         <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-            <div class="p-4 bg-gray-100 border-b font-semibold flex justify-between items-center">
-                <span><i class="fas fa-calendar-alt mr-2 text-[#08324f]"></i>Weekly Calendar View for <?php echo date('F Y', strtotime($selected_month . '-01')); ?></span>
-                <span class="text-sm text-gray-600">Click on a day to view details</span>
+            <div class="p-4 bg-gray-100 border-b font-semibold">
+                <span><i class="fas fa-calendar-alt mr-2 text-[#08324f]"></i> Monthly Calendar View</span>
             </div>
-            
-            <div class="p-6">
+            <div class="p-4">
                 <?php foreach ($weeks as $week_index => $week): ?>
-                <div class="mb-8 last:mb-0">
+                <div class="mb-4 last:mb-0">
                     <!-- Week Header -->
-                    <div class="bg-[#08324f] text-white px-4 py-2 rounded-t-lg flex justify-between items-center">
-                        <span class="font-semibold"><i class="fas fa-calendar-week mr-2"></i>Week <?php echo $week_index + 1; ?></span>
-                        <span class="text-sm opacity-90">
-                            <?php 
-                            $first_day = reset($week);
-                            $last_day = end($week);
-                            echo date('M d', strtotime($first_day['date'])) . ' - ' . date('M d, Y', strtotime($last_day['date']));
-                            ?>
-                        </span>
+                    <div class="bg-[#08324f] text-white px-3 py-1 rounded-t-lg text-sm">
+                        Week <?php echo $week_index + 1; ?>
                     </div>
                     
                     <!-- Days of Week Header -->
-                    <div class="grid grid-cols-7 gap-2 mt-3 mb-2">
+                    <div class="grid grid-cols-7 gap-1 mt-1 mb-1">
                         <?php foreach ($day_order as $day): ?>
-                        <div class="text-center text-sm font-semibold <?php echo $day == 'Sunday' ? 'text-red-600' : 'text-gray-700'; ?>">
+                        <div class="text-center text-xs font-semibold <?php echo $day == 'Sunday' ? 'text-red-600' : 'text-gray-700'; ?>">
                             <?php echo substr($day, 0, 3); ?>
                         </div>
                         <?php endforeach; ?>
                     </div>
                     
                     <!-- Week Grid -->
-                    <div class="grid grid-cols-7 gap-2">
+                    <div class="grid grid-cols-7 gap-1">
                         <?php foreach ($day_order as $day): ?>
                             <?php if (isset($week[$day])): 
                                 $day_data = $week[$day];
                                 $has_reports = $day_data['reports'] > 0;
                             ?>
                             <a href="?view=daily&date=<?php echo $day_data['date']; ?>" 
-                               class="block p-3 border-2 rounded-lg transition-all <?php echo $has_reports ? 'hover:border-blue-400 hover:shadow-lg cursor-pointer bg-white' : 'bg-gray-50 cursor-default border-gray-200'; ?>"
-                               <?php if ($has_reports): ?>data-tooltip="Click to view details"<?php endif; ?>>
-                                <div class="text-center">
-                                    <div class="text-lg font-bold <?php echo $day == 'Sunday' ? 'text-red-600' : 'text-gray-800'; ?>">
-                                        <?php echo $day_data['day_number']; ?>
-                                    </div>
-                                    <?php if ($has_reports): ?>
-                                    <div class="mt-2 space-y-1">
-                                        <div class="text-sm font-semibold text-blue-600">
-                                            <?php echo $day_data['reports']; ?> reports
-                                        </div>
-                                        <div class="flex justify-center gap-2">
-                                            <?php if ($day_data['approved'] > 0): ?>
-                                            <span class="w-3 h-3 bg-green-500 rounded-full" title="Approved: <?php echo $day_data['approved']; ?>"></span>
-                                            <?php endif; ?>
-                                            <?php if ($day_data['pending'] > 0): ?>
-                                            <span class="w-3 h-3 bg-yellow-500 rounded-full" title="Pending: <?php echo $day_data['pending']; ?>"></span>
-                                            <?php endif; ?>
-                                            <?php if ($day_data['rejected'] > 0): ?>
-                                            <span class="w-3 h-3 bg-red-500 rounded-full" title="Rejected: <?php echo $day_data['rejected']; ?>"></span>
-                                            <?php endif; ?>
-                                        </div>
-                                        <div class="text-xs text-gray-500 flex justify-center gap-2">
-                                            <span class="text-blue-600" title="Patrols">🚶<?php echo $day_data['patrols']; ?></span>
-                                            <span class="text-red-600" title="Checkpoints">🚧<?php echo $day_data['checkpoints']; ?></span>
-                                            <span class="text-green-600" title="Oplans">🛡️<?php echo $day_data['oplans']; ?></span>
-                                        </div>
-                                    </div>
-                                    <?php else: ?>
-                                    <div class="text-xs text-gray-400 mt-3">No reports</div>
-                                    <?php endif; ?>
+                               class="block p-2 border rounded-lg text-center <?php echo $has_reports ? 'bg-white hover:bg-blue-50 hover:border-blue-300' : 'bg-gray-50 cursor-default'; ?>">
+                                <div class="text-sm font-bold <?php echo $day == 'Sunday' ? 'text-red-600' : 'text-gray-700'; ?>">
+                                    <?php echo $day_data['day_number']; ?>
                                 </div>
+                                <?php if ($has_reports): ?>
+                                <div class="text-xs font-semibold text-blue-600">
+                                    <?php echo $day_data['reports']; ?> reports
+                                </div>
+                                <?php endif; ?>
                             </a>
                             <?php else: ?>
-                            <div class="p-3 border-2 border-gray-100 rounded-lg bg-gray-50 opacity-40">
-                                <div class="text-center text-gray-400 text-lg">-</div>
+                            <div class="p-2 border rounded-lg bg-gray-50 text-gray-400 text-center">
+                                -
                             </div>
                             <?php endif; ?>
                         <?php endforeach; ?>
@@ -855,25 +887,21 @@ $years = $conn->query($years_query);
             </div>
         </div>
 
-        <!-- Detailed Daily Breakdown Table -->
+        <!-- Daily Breakdown Table -->
         <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            <div class="p-4 bg-gray-100 border-b font-semibold flex justify-between items-center">
-                <span><i class="fas fa-list mr-2 text-[#08324f]"></i> Detailed Daily Breakdown</span>
-                <input type="text" id="monthlySearch" placeholder="Search days..." class="px-3 py-1 border rounded-lg text-sm" onkeyup="filterTable('monthlySearch', 'monthly-table')">
+            <div class="p-4 bg-gray-100 border-b font-semibold">
+                <span><i class="fas fa-list mr-2 text-[#08324f]"></i> Daily Breakdown</span>
             </div>
             <div class="table-container">
-                <table id="monthly-table">
+                <table>
                     <thead>
                         <tr>
-                            <th onclick="sortTable(0, 'monthly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Date <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(1, 'monthly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Day <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(2, 'monthly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Total <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(3, 'monthly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Patrols <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(4, 'monthly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Checkpoints <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(5, 'monthly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Oplans <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(6, 'monthly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Approved <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(7, 'monthly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Pending <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(8, 'monthly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Rejected <i class="fas fa-sort ml-1 text-xs"></i></th>
+                            <th>Date</th>
+                            <th>Day</th>
+                            <th class="text-center">Total</th>
+                            <th class="text-center">Patrols</th>
+                            <th class="text-center">Checkpoints</th>
+                            <th class="text-center">Oplans</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -884,20 +912,17 @@ $years = $conn->query($years_query);
                             if ($day['reports'] > 0):
                                 $displayed = true;
                         ?>
-                        <tr data-date="<?php echo $date; ?>">
+                        <tr>
                             <td><?php echo date('M d, Y', strtotime($date)); ?></td>
-                            <td class="<?php echo $day['day_of_week'] == 'Sunday' ? 'text-red-600 font-semibold' : ''; ?>">
+                            <td class="<?php echo $day['day_of_week'] == 'Sunday' ? 'text-red-600' : ''; ?>">
                                 <?php echo $day['day_of_week']; ?>
                             </td>
-                            <td class="font-bold"><?php echo $day['reports']; ?></td>
-                            <td><?php echo $day['patrols']; ?></td>
-                            <td><?php echo $day['checkpoints']; ?></td>
-                            <td><?php echo $day['oplans']; ?></td>
-                            <td class="text-green-600 font-semibold"><?php echo $day['approved']; ?></td>
-                            <td class="text-yellow-600 font-semibold"><?php echo $day['pending']; ?></td>
-                            <td class="text-red-600 font-semibold"><?php echo $day['rejected']; ?></td>
+                            <td class="text-center font-bold"><?php echo $day['reports']; ?></td>
+                            <td class="text-center"><?php echo $day['patrols']; ?></td>
+                            <td class="text-center"><?php echo $day['checkpoints']; ?></td>
+                            <td class="text-center"><?php echo $day['oplans']; ?></td>
                             <td>
-                                <a href="?view=daily&date=<?php echo $date; ?>" class="text-blue-600 hover:text-blue-800" data-tooltip="View daily details">
+                                <a href="?view=daily&date=<?php echo $date; ?>" class="text-blue-600 hover:text-blue-800 text-sm">
                                     <i class="fas fa-eye"></i> View
                                 </a>
                             </td>
@@ -909,26 +934,12 @@ $years = $conn->query($years_query);
                         if (!$displayed):
                         ?>
                         <tr>
-                            <td colspan="10" class="p-8 text-center text-gray-500">
-                                <i class="fas fa-calendar-times text-4xl mb-3"></i>
-                                <p>No reports for this month</p>
+                            <td colspan="7" class="p-6 text-center text-gray-500">
+                                No reports for this month
                             </td>
                         </tr>
                         <?php endif; ?>
                     </tbody>
-                    <tfoot class="bg-gray-100 font-semibold">
-                        <tr>
-                            <td colspan="2" class="text-right">TOTAL:</td>
-                            <td><?php echo $month_totals['reports']; ?></td>
-                            <td><?php echo $month_totals['patrols']; ?></td>
-                            <td><?php echo $month_totals['checkpoints']; ?></td>
-                            <td><?php echo $month_totals['oplans']; ?></td>
-                            <td class="text-green-600"><?php echo $month_totals['approved']; ?></td>
-                            <td class="text-yellow-600"><?php echo $month_totals['pending']; ?></td>
-                            <td class="text-red-600"><?php echo $month_totals['rejected']; ?></td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
         </div>
@@ -938,51 +949,35 @@ $years = $conn->query($years_query);
 
         <!-- Yearly Summary Cards -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div class="stat-card">
-                <p class="text-sm text-gray-500">📅 Year</p>
-                <p class="text-xl font-bold"><?php echo $selected_year; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-blue-500">
+                <p class="text-xs text-gray-500">📅 Year</p>
+                <p class="text-lg font-bold text-[#08324f]"><?php echo $selected_year; ?></p>
             </div>
-            <div class="stat-card">
-                <p class="text-sm text-gray-500">📊 Total Reports</p>
-                <p class="text-2xl font-bold"><?php echo $yearly_summary['total_reports'] ?? 0; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-green-500">
+                <p class="text-xs text-gray-500">📊 Total Reports</p>
+                <p class="text-2xl font-bold text-[#08324f]"><?php echo $yearly_summary['total_reports'] ?? 0; ?></p>
             </div>
-            <div class="stat-card">
-                <p class="text-sm text-gray-500">🚔 Arrests</p>
-                <p class="text-2xl font-bold"><?php echo $yearly_summary['total_arrests'] ?? 0; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-red-500">
+                <p class="text-xs text-gray-500">🚔 Arrests</p>
+                <p class="text-2xl font-bold text-[#08324f]"><?php echo $yearly_summary['total_arrests'] ?? 0; ?></p>
             </div>
-            <div class="stat-card">
-                <p class="text-sm text-gray-500">🔫 Firearms / Contraband</p>
-                <p class="text-lg font-bold"><?php echo $yearly_summary['firearms'] ?? 0; ?> / <?php echo number_format($yearly_summary['contraband'] ?? 0, 2); ?> kg</p>
-            </div>
-        </div>
-
-        <!-- Yearly Status Summary -->
-        <div class="grid grid-cols-3 gap-3 mb-4">
-            <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
-                <p class="text-xs text-gray-600">✅ Approved</p>
-                <p class="text-2xl font-bold text-green-700"><?php echo $yearly_summary['approved'] ?? 0; ?></p>
-            </div>
-            <div class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
-                <p class="text-xs text-gray-600">⏳ Pending</p>
-                <p class="text-2xl font-bold text-yellow-700"><?php echo $yearly_summary['pending'] ?? 0; ?></p>
-            </div>
-            <div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
-                <p class="text-xs text-gray-600">❌ Rejected</p>
-                <p class="text-2xl font-bold text-red-700"><?php echo $yearly_summary['rejected'] ?? 0; ?></p>
+            <div class="stat-card bg-white p-4 rounded-lg shadow-md border-l-4 border-purple-500">
+                <p class="text-xs text-gray-500">🔫 Firearms / Contraband</p>
+                <p class="text-lg font-bold text-[#08324f]"><?php echo $yearly_summary['firearms'] ?? 0; ?> / <?php echo number_format($yearly_summary['contraband'] ?? 0, 2); ?> kg</p>
             </div>
         </div>
 
         <!-- Yearly Type Summary -->
-        <div class="grid grid-cols-3 gap-3 mb-6">
-            <div class="bg-blue-50 p-4 rounded-lg">
+        <div class="grid grid-cols-3 gap-3 mb-4">
+            <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
                 <p class="text-xs text-gray-600">🚶 Patrols</p>
                 <p class="text-2xl font-bold text-blue-700"><?php echo $yearly_summary['patrols'] ?? 0; ?></p>
             </div>
-            <div class="bg-red-50 p-4 rounded-lg">
+            <div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
                 <p class="text-xs text-gray-600">🚧 Checkpoints</p>
                 <p class="text-2xl font-bold text-red-700"><?php echo $yearly_summary['checkpoints'] ?? 0; ?></p>
             </div>
-            <div class="bg-green-50 p-4 rounded-lg">
+            <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
                 <p class="text-xs text-gray-600">🛡️ Oplans</p>
                 <p class="text-2xl font-bold text-green-700"><?php echo $yearly_summary['oplans'] ?? 0; ?></p>
             </div>
@@ -990,22 +985,18 @@ $years = $conn->query($years_query);
 
         <!-- Monthly Breakdown Table -->
         <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            <div class="p-4 bg-gray-100 border-b font-semibold flex justify-between items-center">
-                <span><i class="fas fa-calendar-alt mr-2 text-[#08324f]"></i> Monthly Breakdown for <?php echo $selected_year; ?></span>
-                <input type="text" id="yearlySearch" placeholder="Search months..." class="px-3 py-1 border rounded-lg text-sm" onkeyup="filterTable('yearlySearch', 'yearly-table')">
+            <div class="p-4 bg-gray-100 border-b font-semibold">
+                <span><i class="fas fa-calendar-alt mr-2 text-[#08324f]"></i> Monthly Breakdown</span>
             </div>
             <div class="table-container">
-                <table id="yearly-table">
+                <table>
                     <thead>
                         <tr>
-                            <th onclick="sortTable(0, 'yearly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Month <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(1, 'yearly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Total <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(2, 'yearly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Patrols <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(3, 'yearly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Checkpoints <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(4, 'yearly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Oplans <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(5, 'yearly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Approved <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(6, 'yearly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Pending <i class="fas fa-sort ml-1 text-xs"></i></th>
-                            <th onclick="sortTable(7, 'yearly-table')" class="cursor-pointer hover:bg-[#1e4a6a]">Rejected <i class="fas fa-sort ml-1 text-xs"></i></th>
+                            <th>Month</th>
+                            <th class="text-center">Total</th>
+                            <th class="text-center">Patrols</th>
+                            <th class="text-center">Checkpoints</th>
+                            <th class="text-center">Oplans</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -1014,9 +1005,8 @@ $years = $conn->query($years_query);
                         if ($monthly_reports->num_rows == 0): 
                         ?>
                         <tr>
-                            <td colspan="9" class="p-8 text-center text-gray-500">
-                                <i class="fas fa-calendar-times text-4xl mb-3"></i>
-                                <p>No reports for this year</p>
+                            <td colspan="6" class="p-6 text-center text-gray-500">
+                                No reports for this year
                             </td>
                         </tr>
                         <?php 
@@ -1026,15 +1016,12 @@ $years = $conn->query($years_query);
                         ?>
                         <tr>
                             <td class="font-semibold"><?php echo $month['month_name']; ?></td>
-                            <td class="font-bold"><?php echo $month['total_reports']; ?></td>
-                            <td><?php echo $month['patrols']; ?></td>
-                            <td><?php echo $month['checkpoints']; ?></td>
-                            <td><?php echo $month['oplans']; ?></td>
-                            <td class="text-green-600 font-semibold"><?php echo $month['approved']; ?></td>
-                            <td class="text-yellow-600 font-semibold"><?php echo $month['pending']; ?></td>
-                            <td class="text-red-600 font-semibold"><?php echo $month['rejected']; ?></td>
+                            <td class="text-center font-bold"><?php echo $month['total_reports']; ?></td>
+                            <td class="text-center"><?php echo $month['patrols']; ?></td>
+                            <td class="text-center"><?php echo $month['checkpoints']; ?></td>
+                            <td class="text-center"><?php echo $month['oplans']; ?></td>
                             <td>
-                                <a href="?view=monthly&month=<?php echo $selected_year . '-' . $month_num; ?>" class="text-blue-600 hover:text-blue-800" data-tooltip="View month details">
+                                <a href="?view=monthly&month=<?php echo $selected_year . '-' . $month_num; ?>" class="text-blue-600 hover:text-blue-800 text-sm">
                                     <i class="fas fa-eye"></i> View
                                 </a>
                             </td>
@@ -1044,19 +1031,6 @@ $years = $conn->query($years_query);
                         endif; 
                         ?>
                     </tbody>
-                    <tfoot class="bg-gray-100 font-semibold">
-                        <tr>
-                            <td class="text-right">TOTAL:</td>
-                            <td><?php echo $yearly_summary['total_reports'] ?? 0; ?></td>
-                            <td><?php echo $yearly_summary['patrols'] ?? 0; ?></td>
-                            <td><?php echo $yearly_summary['checkpoints'] ?? 0; ?></td>
-                            <td><?php echo $yearly_summary['oplans'] ?? 0; ?></td>
-                            <td class="text-green-600"><?php echo $yearly_summary['approved'] ?? 0; ?></td>
-                            <td class="text-yellow-600"><?php echo $yearly_summary['pending'] ?? 0; ?></td>
-                            <td class="text-red-600"><?php echo $yearly_summary['rejected'] ?? 0; ?></td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
         </div>
@@ -1064,13 +1038,60 @@ $years = $conn->query($years_query);
         <?php endif; ?>
 
         <!-- Footer Note -->
-        <div class="mt-4 text-center text-sm text-gray-500 no-print">
-            <i class="fas fa-info-circle mr-1"></i> Click on any day or month to see detailed reports. Hover over icons for more info.
+        <div class="mt-4 text-xs text-gray-500 text-center no-print">
+            <i class="fas fa-check-circle text-green-500 mr-1"></i> All reports are auto-approved
         </div>
     </div>
 
-    <!-- Link to external JavaScript -->
-    <script src="js/all_reports.js"></script>
+    <script>
+        // Mobile Menu Functions
+        const sidebar = document.getElementById('sidebar');
+        const menuBtn = document.getElementById('mobileMenuBtn');
+        const closeBtn = document.getElementById('closeSidebar');
+        const overlay = document.getElementById('menuOverlay');
+
+        function openMobileMenu() {
+            sidebar.classList.add('open');
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMobileMenu() {
+            sidebar.classList.remove('open');
+            overlay.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        if (menuBtn) menuBtn.addEventListener('click', openMobileMenu);
+        if (closeBtn) closeBtn.addEventListener('click', closeMobileMenu);
+        if (overlay) overlay.addEventListener('click', closeMobileMenu);
+        
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 768) closeMobileMenu();
+        });
+
+        // Dropdown Functions
+        function toggleDropdown(element) {
+            const parent = element.closest('.dropdown');
+            parent.classList.toggle('active');
+            const arrow = element.querySelector('.fa-chevron-down');
+            if (arrow) arrow.classList.toggle('rotate-180');
+        }
+
+        document.querySelectorAll('.dropdown > div').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const current = this.closest('.dropdown');
+                document.querySelectorAll('.dropdown').forEach(drop => {
+                    if (drop !== current) {
+                        drop.classList.remove('active');
+                        const arrow = drop.querySelector('.fa-chevron-down');
+                        if (arrow) arrow.classList.remove('rotate-180');
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 <?php $conn->close(); ?>

@@ -1,21 +1,22 @@
 <?php
 // =====================================================
 // FILE: admin/accomplishment_report.php
-// PURPOSE: Detailed accomplishment report (No Top Officers)
+// PURPOSE: Detailed accomplishment report with all fields
+// IMPROVED: Added disposition, better UI, mobile responsive
 // =====================================================
 
 session_start();
 require_once '../config/db_connect.php';
-requireAdmin(); // Function to ensure only admins can access
+requireAdmin();
 
 // Get filter parameters
-$from_date = $_GET['from_date'] ?? date('Y-m-01'); // First day of current month
-$to_date = $_GET['to_date'] ?? date('Y-m-d'); // Today
+$from_date = $_GET['from_date'] ?? date('Y-m-01');
+$to_date = $_GET['to_date'] ?? date('Y-m-d');
 
 // Build date condition - ONLY APPROVED REPORTS
 $date_condition = " AND DATE(submitted_at) BETWEEN '$from_date' AND '$to_date' AND status = 'approved'";
 
-// Get summary statistics (APPROVED only)
+// Get summary statistics
 $stats = [];
 
 // Total reports count
@@ -31,7 +32,7 @@ $stats['checkpoints'] = $row['checkpoints'];
 $stats['oplans'] = $row['oplans'];
 $stats['total_operations'] = $row['patrols'] + $row['checkpoints'] + $row['oplans'];
 
-// Get personnel deployed
+// Personnel deployed
 $result = $conn->query("
     SELECT 
         (SELECT COALESCE(SUM(personnel_count), 0) FROM patrol_activities WHERE 1=1 $date_condition) as patrol_personnel,
@@ -41,7 +42,7 @@ $result = $conn->query("
 $personnel = $result->fetch_assoc();
 $stats['total_personnel'] = $personnel['patrol_personnel'] + $personnel['checkpoint_personnel'] + $personnel['oplan_personnel'];
 
-// Get arrests and accomplishments
+// Arrests and accomplishments
 $result = $conn->query("
     SELECT 
         (SELECT COALESCE(SUM(arrested_accomplishment), 0) FROM checkpoint_activities WHERE 1=1 $date_condition) as checkpoint_arrests,
@@ -56,7 +57,7 @@ $stats['firearms'] = $accomplishments['firearms'];
 $stats['contraband'] = $accomplishments['contraband'];
 $stats['tct_ovr'] = $accomplishments['tct_ovr'];
 
-// Get oplan type counts
+// Oplan type counts
 $result = $conn->query("
     SELECT 
         (SELECT COUNT(*) FROM oplan_activities WHERE 1=1 $date_condition AND oplan_type = 'Oplan Bakal') as oplan_bakal,
@@ -65,6 +66,26 @@ $result = $conn->query("
 $oplan_counts = $result->fetch_assoc();
 $stats['oplan_bakal'] = $oplan_counts['oplan_bakal'] ?? 0;
 $stats['oplan_sita'] = $oplan_counts['oplan_sita'] ?? 0;
+
+// ===== DISPOSITION TOTALS (NEW) =====
+$result = $conn->query("
+    SELECT 
+        (SELECT COALESCE(SUM(fixed_count), 0) FROM checkpoint_activities WHERE 1=1 $date_condition) +
+        (SELECT COALESCE(SUM(fixed_count), 0) FROM oplan_activities WHERE 1=1 $date_condition) as total_fixed,
+        
+        (SELECT COALESCE(SUM(fined_count), 0) FROM checkpoint_activities WHERE 1=1 $date_condition) +
+        (SELECT COALESCE(SUM(fined_count), 0) FROM oplan_activities WHERE 1=1 $date_condition) as total_fined,
+        
+        (SELECT COALESCE(SUM(warned_count), 0) FROM checkpoint_activities WHERE 1=1 $date_condition) +
+        (SELECT COALESCE(SUM(warned_count), 0) FROM oplan_activities WHERE 1=1 $date_condition) as total_warned,
+        
+        (SELECT COALESCE(SUM(charged_count), 0) FROM checkpoint_activities WHERE 1=1 $date_condition) +
+        (SELECT COALESCE(SUM(charged_count), 0) FROM oplan_activities WHERE 1=1 $date_condition) as total_charged,
+        
+        (SELECT COALESCE(SUM(community_service), 0) FROM checkpoint_activities WHERE 1=1 $date_condition) +
+        (SELECT COALESCE(SUM(community_service), 0) FROM oplan_activities WHERE 1=1 $date_condition) as total_community
+");
+$disposition = $result->fetch_assoc();
 
 // ===== DETAILED PATROL BREAKDOWN =====
 $patrol_details = [];
@@ -85,7 +106,6 @@ while ($p = $patrol_query->fetch_assoc()) {
 }
 
 // ===== DETAILED CHECKPOINT BREAKDOWN =====
-$checkpoint_details = [];
 $checkpoint_query = $conn->query("
     SELECT 
         COUNT(*) as total_checkpoints,
@@ -94,7 +114,13 @@ $checkpoint_query = $conn->query("
         COALESCE(SUM(mobile_checkpoint_ops), 0) as mobile_ops,
         COALESCE(SUM(mobile_personnel), 0) as mobile_personnel,
         COALESCE(SUM(tct_ovr_accomplishment), 0) as tct_ovr,
-        COALESCE(SUM(arrested_accomplishment), 0) as arrests
+        COALESCE(SUM(arrested_accomplishment), 0) as arrests,
+        COALESCE(SUM(drinking_violations), 0) as drinking,
+        COALESCE(SUM(smoking_violations), 0) as smoking,
+        COALESCE(SUM(halfnaked_violations), 0) as halfnaked,
+        COALESCE(SUM(curfew_violations), 0) as curfew,
+        COALESCE(SUM(vandalism_violations), 0) as vandalism,
+        COALESCE(SUM(other_violations), 0) as other_violations
     FROM checkpoint_activities 
     WHERE 1=1 $date_condition
 ");
@@ -112,7 +138,13 @@ $oplan_query = $conn->query("
         COALESCE(SUM(personnel_count), 0) as personnel,
         COALESCE(SUM(house_visitations), 0) as house_visits,
         COALESCE(SUM(kontra_boga), 0) as kontra_boga,
-        COALESCE(SUM(anti_vaping), 0) as anti_vaping
+        COALESCE(SUM(anti_vaping), 0) as anti_vaping,
+        COALESCE(SUM(drinking_violations), 0) as drinking,
+        COALESCE(SUM(smoking_violations), 0) as smoking,
+        COALESCE(SUM(halfnaked_violations), 0) as halfnaked,
+        COALESCE(SUM(curfew_violations), 0) as curfew,
+        COALESCE(SUM(vandalism_violations), 0) as vandalism,
+        COALESCE(SUM(other_violations), 0) as other_violations
     FROM oplan_activities 
     WHERE 1=1 $date_condition
     GROUP BY oplan_type
@@ -122,7 +154,6 @@ while ($o = $oplan_query->fetch_assoc()) {
 }
 
 // ===== VIOLATIONS BREAKDOWN =====
-$violations = [];
 $violations_query = $conn->query("
     SELECT 
         (SELECT COALESCE(SUM(drinking_violations), 0) FROM patrol_activities WHERE 1=1 $date_condition) +
@@ -151,6 +182,10 @@ $violations_query = $conn->query("
 ");
 $violations = $violations_query->fetch_assoc();
 $stats['total_violations'] = array_sum($violations);
+
+// Admin info
+$admin_name = $_SESSION['full_name'] ?? 'Admin';
+$admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
 ?>
 
 <!DOCTYPE html>
@@ -159,16 +194,64 @@ $stats['total_violations'] = array_sum($violations);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="../image/pnplogo.png">
-    <title>PNP | Detailed Accomplishment Report</title>
+    <title>PNP | Accomplishment Report</title>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
     <style>
         /* Dropdown styles */
-        .dropdown-content { display: none; }
-        .dropdown.active .dropdown-content { display: block; }
-        .rotate-180 { transform: rotate(180deg); }
+        .dropdown-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .dropdown.active .dropdown-content {
+            max-height: 300px;
+            transition: max-height 0.5s ease-in;
+        }
+        .rotate-180 {
+            transform: rotate(180deg);
+            transition: transform 0.3s ease;
+        }
+        
+        /* Sidebar scrollbar */
+        .sidebar-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #1e4a6a #08324f;
+        }
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: #08324f;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background-color: #1e4a6a;
+            border-radius: 20px;
+        }
+        
+        /* Mobile menu */
+        @media (max-width: 768px) {
+            .sidebar-mobile {
+                position: fixed;
+                left: -100%;
+                transition: left 0.3s ease;
+                z-index: 50;
+                width: 280px;
+                height: 100vh;
+            }
+            .sidebar-mobile.open {
+                left: 0;
+            }
+            .main-content-mobile {
+                width: 100%;
+                margin-left: 0;
+            }
+        }
         
         /* PRINT STYLES */
         @media print {
@@ -230,11 +313,11 @@ $stats['total_violations'] = array_sum($violations);
         /* Card styles */
         .stat-card {
             transition: all 0.2s ease;
-            border-left: 4px solid #08324f;
+            border-left-width: 4px;
         }
         .stat-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         
         .section-title {
@@ -246,17 +329,9 @@ $stats['total_violations'] = array_sum($violations);
             margin-bottom: 12px;
         }
         
-        @media (max-width: 768px) {
-            .sidebar-mobile {
-                position: fixed;
-                left: -100%;
-                transition: left 0.3s ease;
-                z-index: 50;
-                width: 280px;
-            }
-            .sidebar-mobile.open {
-                left: 0;
-            }
+        .value-highlight {
+            font-weight: 700;
+            color: #08324f;
         }
     </style>
 </head>
@@ -271,66 +346,84 @@ $stats['total_violations'] = array_sum($violations);
     <div id="menuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden no-print" onclick="closeMobileMenu()"></div>
 
     <!-- Sidebar -->
-    <div id="sidebar" class="w-full md:w-[240px] bg-[#08324f] text-white h-screen overflow-y-auto sidebar-mobile fixed top-0 left-[-100%] md:left-0 md:sticky z-50 transition-all duration-300 ease-in-out no-print">
+    <div id="sidebar" class="w-full md:w-[260px] bg-[#08324f] text-white h-screen overflow-y-auto sidebar-scroll sidebar-mobile fixed top-0 left-[-100%] md:left-0 md:sticky z-50 transition-all duration-300 ease-in-out no-print">
         
         <button id="closeSidebar" class="md:hidden absolute top-4 right-4 text-white text-xl">
             <i class="fas fa-times"></i>
         </button>
 
         <!-- Logo and Title -->
-        <div class="flex items-center gap-3 p-4 border-b border-[#1e4a6a]">
-            <img src="../image/pnplogo.png" class="w-8 h-8 object-contain" alt="PNP Logo">
+        <div class="flex items-center gap-3 p-5 border-b border-[#1e4a6a] sticky top-0 bg-[#08324f] z-10">
+            <img src="../image/pnplogo.png" class="w-10 h-10 object-contain" alt="PNP Logo">
             <div>
-                <h2 class="text-lg font-semibold">PNP Admin</h2>
-                <p class="text-xs text-yellow-400">Manolo Fortich</p>
+                <h2 class="text-lg font-semibold leading-tight">PNP Operation</h2>
+                <p class="text-xs text-yellow-400">Admin Panel</p>
             </div>
         </div>
 
         <!-- Admin Info -->
-        <div class="bg-[#1e4a6a] m-4 p-3 rounded-lg text-center">
-            <p class="text-sm text-yellow-400"><?php echo $_SESSION['full_name'] ?? 'Admin'; ?></p>
-            <p class="text-xs text-gray-300 mt-1"><?php echo $_SESSION['email'] ?? 'admin@pnp.gov.ph'; ?></p>
+        <div class="bg-[#1e4a6a] mx-4 my-4 p-4 rounded-lg text-center shadow-lg">
+            <div class="w-16 h-16 bg-yellow-400 rounded-full mx-auto mb-3 flex items-center justify-center text-[#08324f] text-2xl font-bold">
+                <?php echo substr($admin_name, 0, 1); ?>
+            </div>
+            <p class="font-medium text-yellow-400"><?php echo $admin_name; ?></p>
+            <p class="text-xs text-gray-300 mt-1 break-all"><?php echo $admin_email; ?></p>
         </div>
 
-        <!-- Simple Menu -->
-        <ul class="space-y-1 px-3">
-            <li><a href="admin_dashboard.php" class="flex items-center gap-3 p-2 rounded-lg hover:bg-[#1e4a6a]"><i class="fas fa-tachometer-alt w-5"></i>Dashboard</a></li>
-            <li><a href="checkpoint.php" class="flex items-center gap-3 p-2 rounded-lg hover:bg-[#1e4a6a]"><i class="fas fa-map-marker-alt w-5"></i>Checkpoint</a></li>
+        <!-- Navigation Menu -->
+        <ul class="space-y-1 px-3 pb-5">
+            <li><a href="admin_dashboard.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-tachometer-alt w-5"></i> Dashboard</a></li>
+            <li><a href="checkpoint.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-map-marker-alt w-5"></i> Checkpoint</a></li>
+            
             <li class="dropdown">
-                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-[#1e4a6a] cursor-pointer" onclick="toggleDropdown(this)">
-                    <div class="flex items-center gap-3"><i class="fas fa-walking w-5"></i>Patrol</div>
-                    <i class="fas fa-chevron-down text-xs transition-transform"></i>
+                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-[#1e4a6a] cursor-pointer transition" onclick="toggleDropdown(this)">
+                    <div class="flex items-center gap-3"><i class="fas fa-walking w-5"></i> Patrol</div>
+                    <i class="fas fa-chevron-down text-xs transition-transform duration-300"></i>
                 </div>
-                <ul class="dropdown-content pl-8 mt-1 space-y-1">
-                    <li><a href="footpatrol.php" class="block p-1 text-sm hover:bg-[#1e4a6a] rounded">Foot Patrol</a></li>
-                    <li><a href="mobilepatrol.php" class="block p-1 text-sm hover:bg-[#1e4a6a] rounded">Mobile Patrol</a></li>
-                    <li><a href="motorpatrol.php" class="block p-1 text-sm hover:bg-[#1e4a6a] rounded">Motor Patrol</a></li>
+                <ul class="dropdown-content pl-4 ml-4 space-y-1 border-l border-[#1e4a6a]">
+                    <li><a href="footpatrol.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Foot Patrol</a></li>
+                    <li><a href="mobilepatrol.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Mobile Patrol</a></li>
+                    <li><a href="motorpatrol.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Motor Patrol</a></li>
                 </ul>
             </li>
+            
             <li class="dropdown">
-                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-[#1e4a6a] cursor-pointer" onclick="toggleDropdown(this)">
-                    <div class="flex items-center gap-3"><i class="fas fa-shield-alt w-5"></i>Oplan</div>
-                    <i class="fas fa-chevron-down text-xs transition-transform"></i>
+                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-[#1e4a6a] cursor-pointer transition" onclick="toggleDropdown(this)">
+                    <div class="flex items-center gap-3"><i class="fas fa-shield-alt w-5"></i> Oplan</div>
+                    <i class="fas fa-chevron-down text-xs transition-transform duration-300"></i>
                 </div>
-                <ul class="dropdown-content pl-8 mt-1 space-y-1">
-                    <li><a href="oplanbakal.php" class="block p-1 text-sm hover:bg-[#1e4a6a] rounded">Oplan Bakal</a></li>
-                    <li><a href="oplansita.php" class="block p-1 text-sm hover:bg-[#1e4a6a] rounded">Oplan Sita</a></li>
+                <ul class="dropdown-content pl-4 ml-4 space-y-1 border-l border-[#1e4a6a]">
+                    <li><a href="oplanbakal.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Oplan Bakal</a></li>
+                    <li><a href="oplansita.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Oplan Sita</a></li>
                 </ul>
             </li>
-            <li><a href="admin_users.php" class="flex items-center gap-3 p-2 rounded-lg hover:bg-[#1e4a6a]"><i class="fas fa-users w-5"></i>Users</a></li>
-            <li class="bg-[#1e4a6a] rounded-lg"><a href="accomplishment_report.php" class="flex items-center gap-3 p-2"><i class="fas fa-file-alt w-5 text-yellow-400"></i>Accomplishment Report</a></li>
-            <li class="mt-6 pt-4 border-t border-[#1e4a6a]"><a href="../logout.php" class="flex items-center gap-3 p-2 rounded-lg bg-red-600 hover:bg-red-700"><i class="fas fa-sign-out-alt w-5"></i>Logout</a></li>
+            
+            <li><a href="admin_users.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-users w-5"></i> Users</a></li>
+            <li class="bg-[#1e4a6a] rounded-lg"><a href="accomplishment_report.php" class="flex items-center gap-3 p-3"><i class="fas fa-file-alt w-5 text-yellow-400"></i> Accomplishment Report</a></li>
+            <li><a href="all_reports.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-folder-open w-5"></i> All Reports</a></li>
+            <li><a href="activity_logs.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-history w-5"></i> Activity Logs</a></li>
+            
+            <li class="my-4 border-t border-[#1e4a6a]"></li>
+            <li><a href="../logout.php" class="flex items-center gap-3 p-3 rounded-lg bg-red-600 hover:bg-red-700 transition"><i class="fas fa-sign-out-alt w-5"></i> Logout</a></li>
+            
+            <li class="mt-6 text-center text-xs text-gray-400">
+                <p>PNP Manolo Fortich v2.0</p>
+                <p class="mt-1">© 2026 All Rights Reserved</p>
+            </li>
         </ul>
     </div>
 
     <!-- Main Content -->
-    <div class="flex-1 p-4 md:p-6 bg-[#eef2f6] overflow-y-auto min-h-screen">
+    <div class="flex-1 p-4 md:p-6 bg-[#eef2f6] overflow-y-auto min-h-screen main-content-mobile">
         
         <!-- Header with Print Button -->
-        <div class="bg-white p-4 rounded-lg shadow-md mb-4 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center no-print">
+        <div class="bg-white p-4 md:p-6 rounded-lg shadow-md mb-4 border-l-4 border-yellow-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
             <div>
-                <h2 class="text-xl font-bold text-[#08324f]">📋 DETAILED ACCOMPLISHMENT REPORT</h2>
-                <p class="text-sm text-gray-600">Select date range to generate report</p>
+                <h2 class="text-xl md:text-2xl font-bold text-[#08324f] flex items-center gap-2">
+                    <i class="fas fa-file-alt text-yellow-500"></i>
+                    Accomplishment Report
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">All reports are automatically approved</p>
             </div>
             <button onclick="window.print()" class="bg-[#1f6fb2] text-white px-4 py-2 rounded-lg hover:bg-[#0a3d62] transition flex items-center gap-2">
                 <i class="fas fa-print"></i> Print Report
@@ -339,18 +432,18 @@ $stats['total_violations'] = array_sum($violations);
 
         <!-- Date Filter -->
         <div class="bg-white p-4 rounded-lg shadow-md mb-4 no-print">
-            <form method="GET" class="flex flex-col sm:flex-row gap-3 items-end">
-                <div class="flex-1">
+            <form method="GET" class="flex flex-wrap items-end gap-3">
+                <div class="flex-1 min-w-[200px]">
                     <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                    <input type="date" name="from_date" value="<?php echo $from_date; ?>" class="w-full p-2 border border-gray-300 rounded-lg">
+                    <input type="date" name="from_date" value="<?php echo $from_date; ?>" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]">
                 </div>
-                <div class="flex-1">
+                <div class="flex-1 min-w-[200px]">
                     <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                    <input type="date" name="to_date" value="<?php echo $to_date; ?>" class="w-full p-2 border border-gray-300 rounded-lg">
+                    <input type="date" name="to_date" value="<?php echo $to_date; ?>" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]">
                 </div>
                 <div>
-                    <button type="submit" class="w-full sm:w-auto bg-[#1f6fb2] text-white px-6 py-2 rounded-lg hover:bg-[#0a3d62] transition">
-                        <i class="fas fa-search mr-2"></i> Generate
+                    <button type="submit" class="bg-[#1f6fb2] text-white px-6 py-2 rounded-lg hover:bg-[#0a3d62] transition flex items-center gap-2">
+                        <i class="fas fa-search"></i> Generate
                     </button>
                 </div>
             </form>
@@ -376,126 +469,147 @@ $stats['total_violations'] = array_sum($violations);
 
             <!-- Report Title -->
             <div class="text-center mb-6">
-                <h2 class="text-lg font-bold uppercase">DETAILED ACCOMPLISHMENT REPORT</h2>
+                <h2 class="text-lg font-bold uppercase">ACCOMPLISHMENT REPORT</h2>
                 <p class="text-base"><?php echo date('F d, Y', strtotime($from_date)); ?> - <?php echo date('F d, Y', strtotime($to_date)); ?></p>
+                <p class="text-xs text-green-600 mt-1"><i class="fas fa-check-circle mr-1"></i> All reports are auto-approved</p>
             </div>
 
             <!-- SUMMARY CARDS -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <div class="stat-card bg-blue-50 p-3 rounded-lg">
+                <div class="stat-card bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
                     <p class="text-xs text-gray-600">Total Operations</p>
-                    <p class="text-2xl font-bold"><?php echo $stats['total_operations']; ?></p>
+                    <p class="text-2xl font-bold text-[#08324f]"><?php echo $stats['total_operations']; ?></p>
                 </div>
-                <div class="stat-card bg-green-50 p-3 rounded-lg">
-                    <p class="text-xs text-gray-600">Personnel Deployed</p>
-                    <p class="text-2xl font-bold"><?php echo $stats['total_personnel']; ?></p>
+                <div class="stat-card bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
+                    <p class="text-xs text-gray-600">Personnel</p>
+                    <p class="text-2xl font-bold text-[#08324f]"><?php echo $stats['total_personnel']; ?></p>
                 </div>
-                <div class="stat-card bg-red-50 p-3 rounded-lg">
-                    <p class="text-xs text-gray-600">Total Arrests</p>
-                    <p class="text-2xl font-bold"><?php echo $stats['total_arrests']; ?></p>
+                <div class="stat-card bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
+                    <p class="text-xs text-gray-600">Arrests</p>
+                    <p class="text-2xl font-bold text-[#08324f]"><?php echo $stats['total_arrests']; ?></p>
                 </div>
-                <div class="stat-card bg-yellow-50 p-3 rounded-lg">
-                    <p class="text-xs text-gray-600">Total Violations</p>
-                    <p class="text-2xl font-bold"><?php echo $stats['total_violations']; ?></p>
+                <div class="stat-card bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
+                    <p class="text-xs text-gray-600">Violations</p>
+                    <p class="text-2xl font-bold text-[#08324f]"><?php echo $stats['total_violations']; ?></p>
                 </div>
             </div>
 
-            <!-- ===== SECTION 1: PATROL OPERATIONS ===== -->
+            <!-- DISPOSITION SUMMARY (NEW) -->
+            <div class="mb-6">
+                <h3 class="section-title">⚖️ DISPOSITION SUMMARY</h3>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div class="bg-gray-50 p-3 rounded-lg text-center">
+                        <p class="text-xs text-gray-500">Fixed</p>
+                        <p class="text-2xl font-bold text-[#08324f]"><?php echo $disposition['total_fixed'] ?? 0; ?></p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg text-center">
+                        <p class="text-xs text-gray-500">Fined</p>
+                        <p class="text-2xl font-bold text-[#08324f]"><?php echo $disposition['total_fined'] ?? 0; ?></p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg text-center">
+                        <p class="text-xs text-gray-500">Warned</p>
+                        <p class="text-2xl font-bold text-[#08324f]"><?php echo $disposition['total_warned'] ?? 0; ?></p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg text-center">
+                        <p class="text-xs text-gray-500">Charged</p>
+                        <p class="text-2xl font-bold text-[#08324f]"><?php echo $disposition['total_charged'] ?? 0; ?></p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg text-center">
+                        <p class="text-xs text-gray-500">Community</p>
+                        <p class="text-2xl font-bold text-[#08324f]"><?php echo $disposition['total_community'] ?? 0; ?></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PATROL OPERATIONS -->
             <div class="mb-6">
                 <h3 class="section-title">🚶 PATROL OPERATIONS</h3>
-                
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                     <!-- Foot Patrol -->
-                    <div class="border rounded-lg p-3">
+                    <div class="border rounded-lg p-4">
                         <div class="flex items-center gap-2 mb-2">
-                            <i class="fas fa-walking text-blue-600"></i>
+                            <i class="fas fa-walking text-blue-600 text-xl"></i>
                             <h4 class="font-semibold">Foot Patrol</h4>
                         </div>
-                        <p class="text-2xl font-bold"><?php echo $patrol_details['Foot Patrol']['count'] ?? 0; ?></p>
+                        <p class="text-2xl font-bold text-[#08324f]"><?php echo $patrol_details['Foot Patrol']['count'] ?? 0; ?></p>
                         <p class="text-sm text-gray-600">Personnel: <?php echo $patrol_details['Foot Patrol']['personnel'] ?? 0; ?></p>
                     </div>
                     
                     <!-- Mobile Patrol -->
-                    <div class="border rounded-lg p-3">
+                    <div class="border rounded-lg p-4">
                         <div class="flex items-center gap-2 mb-2">
-                            <i class="fas fa-car text-blue-600"></i>
+                            <i class="fas fa-car text-blue-600 text-xl"></i>
                             <h4 class="font-semibold">Mobile Patrol</h4>
                         </div>
-                        <p class="text-2xl font-bold"><?php echo $patrol_details['Mobile Patrol']['count'] ?? 0; ?></p>
+                        <p class="text-2xl font-bold text-[#08324f]"><?php echo $patrol_details['Mobile Patrol']['count'] ?? 0; ?></p>
                         <p class="text-sm text-gray-600">Personnel: <?php echo $patrol_details['Mobile Patrol']['personnel'] ?? 0; ?></p>
                     </div>
                     
                     <!-- Motor Patrol -->
-                    <div class="border rounded-lg p-3">
+                    <div class="border rounded-lg p-4">
                         <div class="flex items-center gap-2 mb-2">
-                            <i class="fas fa-motorcycle text-blue-600"></i>
+                            <i class="fas fa-motorcycle text-blue-600 text-xl"></i>
                             <h4 class="font-semibold">Motor Patrol</h4>
                         </div>
-                        <p class="text-2xl font-bold"><?php echo $patrol_details['Motorcycle Patrol']['count'] ?? 0; ?></p>
+                        <p class="text-2xl font-bold text-[#08324f]"><?php echo $patrol_details['Motorcycle Patrol']['count'] ?? 0; ?></p>
                         <p class="text-sm text-gray-600">Personnel: <?php echo $patrol_details['Motorcycle Patrol']['personnel'] ?? 0; ?></p>
                     </div>
                 </div>
-                
-                <div class="bg-blue-50 p-2 rounded-lg text-right">
-                    <span class="font-semibold">Total Patrols: <?php echo $stats['patrols']; ?> | Total Personnel: <?php echo $personnel['patrol_personnel']; ?></span>
-                </div>
             </div>
 
-            <!-- ===== SECTION 2: CHECKPOINT OPERATIONS ===== -->
+            <!-- CHECKPOINT OPERATIONS -->
             <div class="mb-6">
                 <h3 class="section-title">🚧 CHECKPOINT OPERATIONS</h3>
-                
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                    <div class="border rounded-lg p-2">
+                    <div class="border rounded-lg p-3">
                         <p class="text-xs text-gray-500">Total Checkpoints</p>
-                        <p class="text-xl font-bold"><?php echo $checkpoint_details['total_checkpoints'] ?? 0; ?></p>
+                        <p class="text-2xl font-bold text-[#08324f]"><?php echo $checkpoint_details['total_checkpoints'] ?? 0; ?></p>
                     </div>
-                    <div class="border rounded-lg p-2">
-                        <p class="text-xs text-gray-500">Border Control Ops</p>
-                        <p class="text-xl font-bold"><?php echo $checkpoint_details['border_ops'] ?? 0; ?></p>
+                    <div class="border rounded-lg p-3">
+                        <p class="text-xs text-gray-500">Border Ops</p>
+                        <p class="text-xl font-bold text-[#08324f]"><?php echo $checkpoint_details['border_ops'] ?? 0; ?></p>
                         <p class="text-xs">Personnel: <?php echo $checkpoint_details['border_personnel'] ?? 0; ?></p>
                     </div>
-                    <div class="border rounded-lg p-2">
-                        <p class="text-xs text-gray-500">Mobile Checkpoint Ops</p>
-                        <p class="text-xl font-bold"><?php echo $checkpoint_details['mobile_ops'] ?? 0; ?></p>
+                    <div class="border rounded-lg p-3">
+                        <p class="text-xs text-gray-500">Mobile Ops</p>
+                        <p class="text-xl font-bold text-[#08324f]"><?php echo $checkpoint_details['mobile_ops'] ?? 0; ?></p>
                         <p class="text-xs">Personnel: <?php echo $checkpoint_details['mobile_personnel'] ?? 0; ?></p>
                     </div>
-                    <div class="border rounded-lg p-2">
-                        <p class="text-xs text-gray-500">TCT/OVR Accomplishments</p>
-                        <p class="text-xl font-bold"><?php echo $checkpoint_details['tct_ovr'] ?? 0; ?></p>
+                    <div class="border rounded-lg p-3">
+                        <p class="text-xs text-gray-500">TCT/OVR</p>
+                        <p class="text-xl font-bold text-[#08324f]"><?php echo $checkpoint_details['tct_ovr'] ?? 0; ?></p>
                     </div>
                 </div>
-                
-                <div class="bg-red-50 p-2 rounded-lg flex justify-between">
+                <div class="bg-red-50 p-3 rounded-lg flex justify-between">
                     <span class="font-semibold">Arrests Made:</span>
-                    <span class="font-bold text-lg"><?php echo $checkpoint_details['arrests'] ?? 0; ?></span>
+                    <span class="font-bold text-lg text-red-600"><?php echo $checkpoint_details['arrests'] ?? 0; ?></span>
                 </div>
             </div>
 
-            <!-- ===== SECTION 3: OPLAN OPERATIONS ===== -->
+            <!-- OPLAN OPERATIONS -->
             <div class="mb-6">
                 <h3 class="section-title">🛡️ OPLAN OPERATIONS</h3>
                 
                 <!-- Oplan Bakal -->
-                <div class="mb-3">
-                    <h4 class="font-semibold text-[#08324f] bg-gray-100 p-1 rounded">OPLAN BAKAL</h4>
+                <div class="mb-4">
+                    <h4 class="font-semibold text-[#08324f] bg-gray-100 p-2 rounded mb-2">OPLAN BAKAL</h4>
                     <?php if (isset($oplan_details['Oplan Bakal'])): ?>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
-                        <div class="border rounded-lg p-2">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="border rounded-lg p-3">
                             <p class="text-xs text-gray-500">Operations</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Bakal']['count']; ?></p>
+                            <p class="text-xl font-bold text-[#08324f]"><?php echo $oplan_details['Oplan Bakal']['count']; ?></p>
                         </div>
-                        <div class="border rounded-lg p-2">
-                            <p class="text-xs text-gray-500">Firearms Seized</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Bakal']['firearms']; ?></p>
+                        <div class="border rounded-lg p-3">
+                            <p class="text-xs text-gray-500">Firearms</p>
+                            <p class="text-xl font-bold text-red-600"><?php echo $oplan_details['Oplan Bakal']['firearms']; ?></p>
                         </div>
-                        <div class="border rounded-lg p-2">
+                        <div class="border rounded-lg p-3">
                             <p class="text-xs text-gray-500">Arrests</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Bakal']['arrests']; ?></p>
+                            <p class="text-xl font-bold text-[#08324f]"><?php echo $oplan_details['Oplan Bakal']['arrests']; ?></p>
                         </div>
-                        <div class="border rounded-lg p-2">
+                        <div class="border rounded-lg p-3">
                             <p class="text-xs text-gray-500">Personnel</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Bakal']['personnel']; ?></p>
+                            <p class="text-xl font-bold text-[#08324f]"><?php echo $oplan_details['Oplan Bakal']['personnel']; ?></p>
                         </div>
                     </div>
                     <?php else: ?>
@@ -505,86 +619,76 @@ $stats['total_violations'] = array_sum($violations);
                 
                 <!-- Oplan Sita -->
                 <div>
-                    <h4 class="font-semibold text-[#08324f] bg-gray-100 p-1 rounded">OPLAN SITA</h4>
+                    <h4 class="font-semibold text-[#08324f] bg-gray-100 p-2 rounded mb-2">OPLAN SITA</h4>
                     <?php if (isset($oplan_details['Oplan Sita'])): ?>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
-                        <div class="border rounded-lg p-2">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="border rounded-lg p-3">
                             <p class="text-xs text-gray-500">Operations</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Sita']['count']; ?></p>
+                            <p class="text-xl font-bold text-[#08324f]"><?php echo $oplan_details['Oplan Sita']['count']; ?></p>
                         </div>
-                        <div class="border rounded-lg p-2">
-                            <p class="text-xs text-gray-500">Contraband (kg)</p>
-                            <p class="text-xl font-bold"><?php echo number_format($oplan_details['Oplan Sita']['contraband'], 2); ?></p>
+                        <div class="border rounded-lg p-3">
+                            <p class="text-xs text-gray-500">Contraband</p>
+                            <p class="text-xl font-bold text-orange-600"><?php echo number_format($oplan_details['Oplan Sita']['contraband'], 2); ?> kg</p>
                         </div>
-                        <div class="border rounded-lg p-2">
+                        <div class="border rounded-lg p-3">
                             <p class="text-xs text-gray-500">Kontra Boga</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Sita']['kontra_boga']; ?></p>
+                            <p class="text-xl font-bold text-[#08324f]"><?php echo $oplan_details['Oplan Sita']['kontra_boga']; ?></p>
                         </div>
-                        <div class="border rounded-lg p-2">
+                        <div class="border rounded-lg p-3">
                             <p class="text-xs text-gray-500">Anti-Vaping</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Sita']['anti_vaping']; ?></p>
+                            <p class="text-xl font-bold text-[#08324f]"><?php echo $oplan_details['Oplan Sita']['anti_vaping']; ?></p>
                         </div>
-                        <div class="border rounded-lg p-2">
+                        <div class="border rounded-lg p-3">
                             <p class="text-xs text-gray-500">House Visits</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Sita']['house_visits']; ?></p>
+                            <p class="text-xl font-bold text-[#08324f]"><?php echo $oplan_details['Oplan Sita']['house_visits']; ?></p>
                         </div>
-                        <div class="border rounded-lg p-2">
+                        <div class="border rounded-lg p-3">
                             <p class="text-xs text-gray-500">Arrests</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Sita']['arrests']; ?></p>
+                            <p class="text-xl font-bold text-[#08324f]"><?php echo $oplan_details['Oplan Sita']['arrests']; ?></p>
                         </div>
-                        <div class="border rounded-lg p-2">
+                        <div class="border rounded-lg p-3">
                             <p class="text-xs text-gray-500">Personnel</p>
-                            <p class="text-xl font-bold"><?php echo $oplan_details['Oplan Sita']['personnel']; ?></p>
+                            <p class="text-xl font-bold text-[#08324f]"><?php echo $oplan_details['Oplan Sita']['personnel']; ?></p>
                         </div>
                     </div>
                     <?php else: ?>
                     <p class="text-gray-500 text-sm">No Oplan Sita operations</p>
                     <?php endif; ?>
                 </div>
-                
-                <div class="bg-green-50 p-2 rounded-lg mt-3 flex justify-between">
-                    <span class="font-semibold">Total Oplan Arrests:</span>
-                    <span class="font-bold text-lg"><?php echo $accomplishments['oplan_arrests']; ?></span>
-                </div>
             </div>
 
-            <!-- ===== SECTION 4: VIOLATIONS ===== -->
+            <!-- VIOLATIONS -->
             <div class="mb-6">
                 <h3 class="section-title">⚠️ ORDINANCE VIOLATIONS</h3>
-                
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    <div class="border rounded-lg p-2">
+                    <div class="border rounded-lg p-3">
                         <p class="text-xs text-gray-500">Drinking in Public</p>
-                        <p class="text-xl font-bold"><?php echo $violations['drinking'] ?? 0; ?></p>
+                        <p class="text-xl font-bold text-[#08324f]"><?php echo $violations['drinking'] ?? 0; ?></p>
                     </div>
-                    <div class="border rounded-lg p-2">
+                    <div class="border rounded-lg p-3">
                         <p class="text-xs text-gray-500">Smoking Ban</p>
-                        <p class="text-xl font-bold"><?php echo $violations['smoking'] ?? 0; ?></p>
+                        <p class="text-xl font-bold text-[#08324f]"><?php echo $violations['smoking'] ?? 0; ?></p>
                     </div>
-                    <div class="border rounded-lg p-2">
+                    <div class="border rounded-lg p-3">
                         <p class="text-xs text-gray-500">Half-Naked</p>
-                        <p class="text-xl font-bold"><?php echo $violations['halfnaked'] ?? 0; ?></p>
+                        <p class="text-xl font-bold text-[#08324f]"><?php echo $violations['halfnaked'] ?? 0; ?></p>
                     </div>
-                    <div class="border rounded-lg p-2">
+                    <div class="border rounded-lg p-3">
                         <p class="text-xs text-gray-500">Curfew</p>
-                        <p class="text-xl font-bold"><?php echo $violations['curfew'] ?? 0; ?></p>
+                        <p class="text-xl font-bold text-[#08324f]"><?php echo $violations['curfew'] ?? 0; ?></p>
                     </div>
-                    <div class="border rounded-lg p-2">
+                    <div class="border rounded-lg p-3">
                         <p class="text-xs text-gray-500">Vandalism</p>
-                        <p class="text-xl font-bold"><?php echo $violations['vandalism'] ?? 0; ?></p>
+                        <p class="text-xl font-bold text-[#08324f]"><?php echo $violations['vandalism'] ?? 0; ?></p>
                     </div>
-                    <div class="border rounded-lg p-2">
-                        <p class="text-xs text-gray-500">Other Violations</p>
-                        <p class="text-xl font-bold"><?php echo $violations['other'] ?? 0; ?></p>
+                    <div class="border rounded-lg p-3">
+                        <p class="text-xs text-gray-500">Other</p>
+                        <p class="text-xl font-bold text-[#08324f]"><?php echo $violations['other'] ?? 0; ?></p>
                     </div>
-                </div>
-                
-                <div class="bg-yellow-50 p-2 rounded-lg mt-3 text-right">
-                    <span class="font-semibold">Total Violations: <?php echo $stats['total_violations']; ?></span>
                 </div>
             </div>
 
-            <!-- ===== SECTION 5: NARRATIVE REPORT ===== -->
+            <!-- NARRATIVE REPORT -->
             <div class="mb-6">
                 <h3 class="section-title">📝 NARRATIVE REPORT</h3>
                 <div class="bg-gray-50 p-4 rounded-lg text-sm leading-relaxed">
@@ -593,26 +697,29 @@ $stats['total_violations'] = array_sum($violations);
                     </p>
                     <p class="mb-2">
                         <span class="font-semibold">Operations Conducted:</span> A total of <strong><?php echo $stats['total_operations']; ?> operations</strong> were conducted, comprising 
-                        <strong><?php echo $stats['patrols']; ?> patrol operations</strong> (Foot: <?php echo $patrol_details['Foot Patrol']['count'] ?? 0; ?>, 
-                        Mobile: <?php echo $patrol_details['Mobile Patrol']['count'] ?? 0; ?>, Motor: <?php echo $patrol_details['Motorcycle Patrol']['count'] ?? 0; ?>), 
-                        <strong><?php echo $stats['checkpoints']; ?> checkpoint operations</strong>, and 
-                        <strong><?php echo $stats['oplans']; ?> oplan operations</strong> (Bakal: <?php echo $stats['oplan_bakal']; ?>, Sita: <?php echo $stats['oplan_sita']; ?>).
+                        <strong><?php echo $stats['patrols']; ?> patrols</strong>, 
+                        <strong><?php echo $stats['checkpoints']; ?> checkpoints</strong>, and 
+                        <strong><?php echo $stats['oplans']; ?> oplan operations</strong>.
                     </p>
                     <p class="mb-2">
                         <span class="font-semibold">Personnel Deployed:</span> A total of <strong><?php echo $stats['total_personnel']; ?> personnel</strong> were deployed.
                     </p>
                     <p class="mb-2">
-                        <span class="font-semibold">Accomplishments:</span> The operations resulted in <strong><?php echo $stats['total_arrests']; ?> arrests</strong> 
-                        (Checkpoint: <?php echo $checkpoint_details['arrests'] ?? 0; ?>, Oplan: <?php echo $accomplishments['oplan_arrests']; ?>), 
+                        <span class="font-semibold">Accomplishments:</span> The operations resulted in <strong><?php echo $stats['total_arrests']; ?> arrests</strong>, 
                         <strong><?php echo $stats['firearms']; ?> firearms seized</strong>, 
-                        <strong><?php echo number_format($stats['contraband'], 2); ?> kg of contraband</strong>, and 
+                        <strong><?php echo number_format($stats['contraband'], 2); ?> kg contraband</strong>, and 
                         <strong><?php echo $stats['tct_ovr']; ?> TCT/OVR accomplishments</strong>.
                     </p>
+                    <p class="mb-2">
+                        <span class="font-semibold">Disposition:</span> Cases resulted in 
+                        <strong><?php echo $disposition['total_fixed'] ?? 0; ?> fixed</strong>, 
+                        <strong><?php echo $disposition['total_fined'] ?? 0; ?> fined</strong>, 
+                        <strong><?php echo $disposition['total_warned'] ?? 0; ?> warned</strong>, 
+                        <strong><?php echo $disposition['total_charged'] ?? 0; ?> charged</strong>, and 
+                        <strong><?php echo $disposition['total_community'] ?? 0; ?> community service</strong>.
+                    </p>
                     <p>
-                        <span class="font-semibold">Violations Recorded:</span> A total of <strong><?php echo $stats['total_violations']; ?> ordinance violations</strong> were recorded, 
-                        including <strong><?php echo $violations['drinking'] ?? 0; ?> drinking in public</strong>, 
-                        <strong><?php echo $violations['smoking'] ?? 0; ?> smoking ban violations</strong>, 
-                        <strong><?php echo $violations['curfew'] ?? 0; ?> curfew violations</strong>, and others.
+                        <span class="font-semibold">Violations:</span> A total of <strong><?php echo $stats['total_violations']; ?> ordinance violations</strong> were recorded.
                     </p>
                 </div>
             </div>
@@ -621,7 +728,7 @@ $stats['total_violations'] = array_sum($violations);
             <div class="grid grid-cols-2 gap-8 mt-8">
                 <div class="text-center">
                     <p class="font-bold">Prepared by:</p>
-                    <div class="mt-6">
+                    <div class="mt-8">
                         <p class="font-semibold"><?php echo $_SESSION['full_name'] ?? 'Admin Officer'; ?></p>
                         <p class="text-sm">Admin Officer</p>
                     </div>
@@ -630,7 +737,7 @@ $stats['total_violations'] = array_sum($violations);
                 </div>
                 <div class="text-center">
                     <p class="font-bold">Noted by:</p>
-                    <div class="mt-6">
+                    <div class="mt-8">
                         <p class="font-semibold">PLTCOL. ROGIE C ORTENTIO</p>
                         <p class="text-sm">Chief of Police</p>
                     </div>
@@ -647,7 +754,7 @@ $stats['total_violations'] = array_sum($violations);
     </div>
 
     <script>
-        // Mobile Menu
+        // Mobile Menu Functions
         const sidebar = document.getElementById('sidebar');
         const menuBtn = document.getElementById('mobileMenuBtn');
         const closeBtn = document.getElementById('closeSidebar');
@@ -673,22 +780,26 @@ $stats['total_violations'] = array_sum($violations);
             if (window.innerWidth >= 768) closeMobileMenu();
         });
 
-        // Dropdown
+        // Dropdown Functions
         function toggleDropdown(element) {
             const parent = element.closest('.dropdown');
             parent.classList.toggle('active');
-            const arrow = parent.querySelector('.fa-chevron-down');
+            const arrow = element.querySelector('.fa-chevron-down');
             if (arrow) arrow.classList.toggle('rotate-180');
         }
 
-        document.addEventListener('click', function(event) {
-            if (!event.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown > div').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const current = this.closest('.dropdown');
                 document.querySelectorAll('.dropdown').forEach(drop => {
-                    drop.classList.remove('active');
-                    const arrow = drop.querySelector('.fa-chevron-down');
-                    if (arrow) arrow.classList.remove('rotate-180');
+                    if (drop !== current) {
+                        drop.classList.remove('active');
+                        const arrow = drop.querySelector('.fa-chevron-down');
+                        if (arrow) arrow.classList.remove('rotate-180');
+                    }
                 });
-            }
+            });
         });
     </script>
 </body>
