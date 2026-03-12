@@ -2,7 +2,7 @@
 // =====================================================
 // FILE: admin/view_user.php
 // PURPOSE: Display complete user profile with statistics
-// IMPROVED: Mobile responsive, better UI, cleaner code
+// IMPROVED: Removed pending/rejected, added violations/disposition
 // =====================================================
 
 session_start();
@@ -86,134 +86,195 @@ if (!$user) {
     exit();
 }
 
-// Get user statistics
+// Get user statistics (APPROVED ONLY)
 $stats = [];
 
 // Patrol statistics
 $result = $conn->query("
     SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
         SUM(CASE WHEN patrol_type = 'Foot Patrol' THEN 1 ELSE 0 END) as foot,
         SUM(CASE WHEN patrol_type = 'Mobile Patrol' THEN 1 ELSE 0 END) as mobile,
         SUM(CASE WHEN patrol_type = 'Motorcycle Patrol' THEN 1 ELSE 0 END) as motor,
-        SUM(personnel_count) as total_personnel
+        SUM(personnel_count) as total_personnel,
+        
+        SUM(drinking_violations) as drinking,
+        SUM(smoking_violations) as smoking,
+        SUM(halfnaked_violations) as halfnaked,
+        SUM(curfew_violations) as curfew,
+        SUM(vandalism_violations) as vandalism,
+        SUM(other_violations) as other
     FROM patrol_activities 
-    WHERE user_id = $user_id
+    WHERE user_id = $user_id AND status = 'approved'
 ");
 $patrol_stats = $result->fetch_assoc();
 $stats['patrols'] = $patrol_stats['total'] ?? 0;
-$stats['patrols_approved'] = $patrol_stats['approved'] ?? 0;
-$stats['patrols_pending'] = $patrol_stats['pending'] ?? 0;
-$stats['patrols_rejected'] = $patrol_stats['rejected'] ?? 0;
 $stats['foot'] = $patrol_stats['foot'] ?? 0;
 $stats['mobile'] = $patrol_stats['mobile'] ?? 0;
 $stats['motor'] = $patrol_stats['motor'] ?? 0;
 $stats['patrol_personnel'] = $patrol_stats['total_personnel'] ?? 0;
 
+// Patrol violations
+$stats['patrol_drinking'] = $patrol_stats['drinking'] ?? 0;
+$stats['patrol_smoking'] = $patrol_stats['smoking'] ?? 0;
+$stats['patrol_halfnaked'] = $patrol_stats['halfnaked'] ?? 0;
+$stats['patrol_curfew'] = $patrol_stats['curfew'] ?? 0;
+$stats['patrol_vandalism'] = $patrol_stats['vandalism'] ?? 0;
+$stats['patrol_other'] = $patrol_stats['other'] ?? 0;
+
 // Checkpoint statistics
 $result = $conn->query("
     SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
         SUM(border_control_ops) as border_ops,
         SUM(mobile_checkpoint_ops) as mobile_ops,
         SUM(tct_ovr_accomplishment) as tct_ovr,
         SUM(arrested_accomplishment) as arrests,
-        SUM(border_personnel + mobile_personnel) as total_personnel
+        SUM(border_personnel + mobile_personnel) as total_personnel,
+        
+        SUM(fixed_count) as fixed,
+        SUM(fined_count) as fined,
+        SUM(warned_count) as warned,
+        SUM(charged_count) as charged,
+        SUM(community_service) as community,
+        
+        SUM(drinking_violations) as drinking,
+        SUM(smoking_violations) as smoking,
+        SUM(halfnaked_violations) as halfnaked,
+        SUM(curfew_violations) as curfew,
+        SUM(vandalism_violations) as vandalism,
+        SUM(other_violations) as other
     FROM checkpoint_activities 
-    WHERE user_id = $user_id
+    WHERE user_id = $user_id AND status = 'approved'
 ");
 $checkpoint_stats = $result->fetch_assoc();
 $stats['checkpoints'] = $checkpoint_stats['total'] ?? 0;
-$stats['checkpoints_approved'] = $checkpoint_stats['approved'] ?? 0;
-$stats['checkpoints_pending'] = $checkpoint_stats['pending'] ?? 0;
-$stats['checkpoints_rejected'] = $checkpoint_stats['rejected'] ?? 0;
 $stats['border_ops'] = $checkpoint_stats['border_ops'] ?? 0;
 $stats['checkpoint_mobile'] = $checkpoint_stats['mobile_ops'] ?? 0;
 $stats['tct_ovr'] = $checkpoint_stats['tct_ovr'] ?? 0;
 $stats['checkpoint_arrests'] = $checkpoint_stats['arrests'] ?? 0;
 $stats['checkpoint_personnel'] = $checkpoint_stats['total_personnel'] ?? 0;
 
+// Checkpoint disposition
+$stats['checkpoint_fixed'] = $checkpoint_stats['fixed'] ?? 0;
+$stats['checkpoint_fined'] = $checkpoint_stats['fined'] ?? 0;
+$stats['checkpoint_warned'] = $checkpoint_stats['warned'] ?? 0;
+$stats['checkpoint_charged'] = $checkpoint_stats['charged'] ?? 0;
+$stats['checkpoint_community'] = $checkpoint_stats['community'] ?? 0;
+
+// Checkpoint violations
+$stats['checkpoint_drinking'] = $checkpoint_stats['drinking'] ?? 0;
+$stats['checkpoint_smoking'] = $checkpoint_stats['smoking'] ?? 0;
+$stats['checkpoint_halfnaked'] = $checkpoint_stats['halfnaked'] ?? 0;
+$stats['checkpoint_curfew'] = $checkpoint_stats['curfew'] ?? 0;
+$stats['checkpoint_vandalism'] = $checkpoint_stats['vandalism'] ?? 0;
+$stats['checkpoint_other'] = $checkpoint_stats['other'] ?? 0;
+
 // Oplan statistics
 $result = $conn->query("
     SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
         SUM(CASE WHEN oplan_type = 'Oplan Bakal' THEN 1 ELSE 0 END) as bakal,
         SUM(CASE WHEN oplan_type = 'Oplan Sita' THEN 1 ELSE 0 END) as sita,
         SUM(firearms_seized) as firearms,
         SUM(contraband_kg) as contraband,
         SUM(arrests_made) as arrests,
-        SUM(personnel_count) as total_personnel
+        SUM(personnel_count) as total_personnel,
+        SUM(house_visitations) as house_visits,
+        SUM(kontra_boga) as kontra_boga,
+        SUM(anti_vaping) as anti_vaping,
+        
+        SUM(fixed_count) as fixed,
+        SUM(fined_count) as fined,
+        SUM(warned_count) as warned,
+        SUM(charged_count) as charged,
+        SUM(community_service) as community,
+        
+        SUM(drinking_violations) as drinking,
+        SUM(smoking_violations) as smoking,
+        SUM(halfnaked_violations) as halfnaked,
+        SUM(curfew_violations) as curfew,
+        SUM(vandalism_violations) as vandalism,
+        SUM(other_violations) as other
     FROM oplan_activities 
-    WHERE user_id = $user_id
+    WHERE user_id = $user_id AND status = 'approved'
 ");
 $oplan_stats = $result->fetch_assoc();
 $stats['oplans'] = $oplan_stats['total'] ?? 0;
-$stats['oplans_approved'] = $oplan_stats['approved'] ?? 0;
-$stats['oplans_pending'] = $oplan_stats['pending'] ?? 0;
-$stats['oplans_rejected'] = $oplan_stats['rejected'] ?? 0;
 $stats['bakal'] = $oplan_stats['bakal'] ?? 0;
 $stats['sita'] = $oplan_stats['sita'] ?? 0;
 $stats['firearms'] = $oplan_stats['firearms'] ?? 0;
 $stats['contraband'] = $oplan_stats['contraband'] ?? 0;
 $stats['oplan_arrests'] = $oplan_stats['arrests'] ?? 0;
 $stats['oplan_personnel'] = $oplan_stats['total_personnel'] ?? 0;
+$stats['house_visits'] = $oplan_stats['house_visits'] ?? 0;
+$stats['kontra_boga'] = $oplan_stats['kontra_boga'] ?? 0;
+$stats['anti_vaping'] = $oplan_stats['anti_vaping'] ?? 0;
+
+// Oplan disposition
+$stats['oplan_fixed'] = $oplan_stats['fixed'] ?? 0;
+$stats['oplan_fined'] = $oplan_stats['fined'] ?? 0;
+$stats['oplan_warned'] = $oplan_stats['warned'] ?? 0;
+$stats['oplan_charged'] = $oplan_stats['charged'] ?? 0;
+$stats['oplan_community'] = $oplan_stats['community'] ?? 0;
+
+// Oplan violations
+$stats['oplan_drinking'] = $oplan_stats['drinking'] ?? 0;
+$stats['oplan_smoking'] = $oplan_stats['smoking'] ?? 0;
+$stats['oplan_halfnaked'] = $oplan_stats['halfnaked'] ?? 0;
+$stats['oplan_curfew'] = $oplan_stats['curfew'] ?? 0;
+$stats['oplan_vandalism'] = $oplan_stats['vandalism'] ?? 0;
+$stats['oplan_other'] = $oplan_stats['other'] ?? 0;
 
 // Total activities
 $stats['total_activities'] = $stats['patrols'] + $stats['checkpoints'] + $stats['oplans'];
-$stats['total_approved'] = $stats['patrols_approved'] + $stats['checkpoints_approved'] + $stats['oplans_approved'];
-$stats['total_pending'] = $stats['patrols_pending'] + $stats['checkpoints_pending'] + $stats['oplans_pending'];
-$stats['total_rejected'] = $stats['patrols_rejected'] + $stats['checkpoints_rejected'] + $stats['oplans_rejected'];
 $stats['total_personnel'] = $stats['patrol_personnel'] + $stats['checkpoint_personnel'] + $stats['oplan_personnel'];
 $stats['total_arrests'] = $stats['checkpoint_arrests'] + $stats['oplan_arrests'];
 
-// Calculate approval rate
-$total_decided = $stats['total_approved'] + $stats['total_rejected'];
-$stats['approval_rate'] = $total_decided > 0 ? round(($stats['total_approved'] / $total_decided) * 100, 1) : 0;
-
-// Get recent activities
+// Get recent activities (APPROVED ONLY)
 $recent = [];
 
 $patrols = $conn->query("
     SELECT 'patrol' as type, patrol_type as subtype, specific_location, 
-           patrol_date as activity_date, patrol_time as activity_time, status,
+           patrol_date as activity_date, patrol_time as activity_time,
            submitted_at
     FROM patrol_activities 
-    WHERE user_id = $user_id
+    WHERE user_id = $user_id AND status = 'approved'
     ORDER BY submitted_at DESC
     LIMIT 3
 ");
-while ($row = $patrols->fetch_assoc()) $recent[] = $row;
+while ($row = $patrols->fetch_assoc()) {
+    $row['status'] = 'approved';
+    $recent[] = $row;
+}
 
 $checkpoints = $conn->query("
     SELECT 'checkpoint' as type, 'Checkpoint' as subtype, specific_location,
-           checkpoint_date as activity_date, checkpoint_time as activity_time, status,
+           checkpoint_date as activity_date, checkpoint_time as activity_time,
            submitted_at
     FROM checkpoint_activities 
-    WHERE user_id = $user_id
+    WHERE user_id = $user_id AND status = 'approved'
     ORDER BY submitted_at DESC
     LIMIT 3
 ");
-while ($row = $checkpoints->fetch_assoc()) $recent[] = $row;
+while ($row = $checkpoints->fetch_assoc()) {
+    $row['status'] = 'approved';
+    $recent[] = $row;
+}
 
 $oplans = $conn->query("
     SELECT 'oplan' as type, oplan_type as subtype, specific_location,
-           oplan_date as activity_date, oplan_time as activity_time, status,
+           oplan_date as activity_date, oplan_time as activity_time,
            submitted_at
     FROM oplan_activities 
-    WHERE user_id = $user_id
+    WHERE user_id = $user_id AND status = 'approved'
     ORDER BY submitted_at DESC
     LIMIT 3
 ");
-while ($row = $oplans->fetch_assoc()) $recent[] = $row;
+while ($row = $oplans->fetch_assoc()) {
+    $row['status'] = 'approved';
+    $recent[] = $row;
+}
 
 usort($recent, function($a, $b) {
     return strtotime($b['submitted_at']) - strtotime($a['submitted_at']);
@@ -223,7 +284,6 @@ $recent = array_slice($recent, 0, 5);
 // Format dates
 $last_login = $user['last_login'] ? date('F d, Y h:i A', strtotime($user['last_login'])) : 'Never logged in';
 $member_since = $user['date_hired'] ? date('F d, Y', strtotime($user['date_hired'])) : 'Not specified';
-$date_hired_display = $user['date_hired'] ? date('Y-m-d', strtotime($user['date_hired'])) : '';
 
 // Admin info
 $admin_name = $_SESSION['full_name'] ?? 'Admin';
@@ -315,9 +375,17 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
         /* Form input focus */
         .form-input:focus {
             outline: none;
-            ring: 2px;
-            ring-color: #1f6fb2;
             border-color: #1f6fb2;
+        }
+        
+        /* Auto-approve badge */
+        .auto-approve-badge {
+            background: #10b981;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -429,9 +497,14 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                 </a>
                 <h2 class="text-xl md:text-2xl font-bold text-[#08324f]">User Profile</h2>
             </div>
-            <span class="bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
-                <i class="fas fa-id-card"></i> <?php echo $user['badge_number']; ?>
-            </span>
+            <div class="flex items-center gap-3">
+                <span class="auto-approve-badge">
+                    <i class="fas fa-check-circle mr-1"></i> Auto-Approved
+                </span>
+                <span class="bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
+                    <i class="fas fa-id-card"></i> <?php echo $user['badge_number']; ?>
+                </span>
+            </div>
         </div>
 
         <!-- User Profile Card -->
@@ -489,34 +562,24 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                 
                 <!-- Summary Cards -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-8">
-                    <!-- Total Activities -->
                     <div class="stat-card bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg shadow-md border-l-4 border-blue-500">
                         <p class="text-xs text-gray-600">Total Activities</p>
                         <p class="text-xl md:text-2xl font-bold text-[#08324f] mt-1"><?php echo $stats['total_activities']; ?></p>
-                        <p class="text-xs text-gray-500 mt-2">All-time total</p>
                     </div>
                     
-                    <!-- Personnel Deployed -->
                     <div class="stat-card bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg shadow-md border-l-4 border-green-500">
                         <p class="text-xs text-gray-600">Personnel</p>
                         <p class="text-xl md:text-2xl font-bold text-[#08324f] mt-1"><?php echo $stats['total_personnel']; ?></p>
-                        <p class="text-xs text-gray-500 mt-2">Total deployed</p>
                     </div>
                     
-                    <!-- Total Arrests -->
                     <div class="stat-card bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg shadow-md border-l-4 border-red-500">
                         <p class="text-xs text-gray-600">Arrests</p>
                         <p class="text-xl md:text-2xl font-bold text-[#08324f] mt-1"><?php echo $stats['total_arrests']; ?></p>
-                        <p class="text-xs text-gray-500 mt-2">Checkpoint + Oplan</p>
                     </div>
                     
-                    <!-- Approval Rate -->
-                    <div class="stat-card bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-lg shadow-md border-l-4 border-yellow-500">
-                        <p class="text-xs text-gray-600">Approval Rate</p>
-                        <p class="text-xl md:text-2xl font-bold text-[#08324f] mt-1"><?php echo $stats['approval_rate']; ?>%</p>
-                        <p class="text-xs text-gray-500 mt-2">
-                            <?php echo $stats['total_approved']; ?> approved / <?php echo $total_decided; ?> decided
-                        </p>
+                    <div class="stat-card bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg shadow-md border-l-4 border-purple-500">
+                        <p class="text-xs text-gray-600">Firearms</p>
+                        <p class="text-xl md:text-2xl font-bold text-[#08324f] mt-1"><?php echo $stats['firearms']; ?></p>
                     </div>
                 </div>
 
@@ -528,24 +591,24 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <p class="text-xs text-gray-500">Contact Number</p>
-                            <p class="font-semibold"><?php echo $user['contact_number'] ?? '<span class="text-gray-400">Not specified</span>'; ?></p>
+                            <p class="font-semibold"><?php echo $user['contact_number'] ?? 'Not specified'; ?></p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Address</p>
-                            <p class="font-semibold"><?php echo $user['address'] ?? '<span class="text-gray-400">Not specified</span>'; ?></p>
+                            <p class="font-semibold"><?php echo $user['address'] ?? 'Not specified'; ?></p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Emergency Contact</p>
-                            <p class="font-semibold"><?php echo $user['emergency_contact_name'] ?? '<span class="text-gray-400">Not specified</span>'; ?></p>
+                            <p class="font-semibold"><?php echo $user['emergency_contact_name'] ?? 'Not specified'; ?></p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Emergency Number</p>
-                            <p class="font-semibold"><?php echo $user['emergency_contact_number'] ?? '<span class="text-gray-400">Not specified</span>'; ?></p>
+                            <p class="font-semibold"><?php echo $user['emergency_contact_number'] ?? 'Not specified'; ?></p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Activity Breakdown Tabs (Simplified) -->
+                <!-- Activity Breakdown Tabs -->
                 <div class="mb-8">
                     <div class="border-b border-gray-200 mb-4">
                         <div class="flex gap-4">
@@ -558,23 +621,6 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                     <!-- Patrol Tab -->
                     <div id="tab-patrol" class="tab-content">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <h5 class="font-medium text-[#08324f] mb-3">Status Breakdown</h5>
-                                <div class="space-y-2">
-                                    <div class="flex justify-between">
-                                        <span class="text-green-600">✓ Approved:</span>
-                                        <span class="font-bold"><?php echo $stats['patrols_approved']; ?></span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-yellow-600">⏳ Pending:</span>
-                                        <span class="font-bold"><?php echo $stats['patrols_pending']; ?></span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-red-600">✗ Rejected:</span>
-                                        <span class="font-bold"><?php echo $stats['patrols_rejected']; ?></span>
-                                    </div>
-                                </div>
-                            </div>
                             <div class="bg-gray-50 p-4 rounded-lg">
                                 <h5 class="font-medium text-[#08324f] mb-3">By Type</h5>
                                 <div class="space-y-2">
@@ -590,34 +636,54 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                                         <span>🏍️ Motor Patrol:</span>
                                         <span class="font-bold"><?php echo $stats['motor']; ?></span>
                                     </div>
+                                    <div class="flex justify-between border-t pt-2 mt-2">
+                                        <span>Personnel:</span>
+                                        <span class="font-bold"><?php echo $stats['patrol_personnel']; ?></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h5 class="font-medium text-[#08324f] mb-3">Violations</h5>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <span>Drinking:</span>
+                                        <span class="font-bold"><?php echo $stats['patrol_drinking']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Smoking:</span>
+                                        <span class="font-bold"><?php echo $stats['patrol_smoking']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Half-Naked:</span>
+                                        <span class="font-bold"><?php echo $stats['patrol_halfnaked']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Curfew:</span>
+                                        <span class="font-bold"><?php echo $stats['patrol_curfew']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Vandalism:</span>
+                                        <span class="font-bold"><?php echo $stats['patrol_vandalism']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Other:</span>
+                                        <span class="font-bold"><?php echo $stats['patrol_other']; ?></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Checkpoint Tab (hidden initially) -->
+                    <!-- Checkpoint Tab -->
                     <div id="tab-checkpoint" class="tab-content hidden">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="bg-gray-50 p-4 rounded-lg">
-                                <h5 class="font-medium text-[#08324f] mb-3">Status Breakdown</h5>
+                                <h5 class="font-medium text-[#08324f] mb-3">Operations</h5>
                                 <div class="space-y-2">
                                     <div class="flex justify-between">
-                                        <span class="text-green-600">✓ Approved:</span>
-                                        <span class="font-bold"><?php echo $stats['checkpoints_approved']; ?></span>
+                                        <span>Total Checkpoints:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoints']; ?></span>
                                     </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-yellow-600">⏳ Pending:</span>
-                                        <span class="font-bold"><?php echo $stats['checkpoints_pending']; ?></span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-red-600">✗ Rejected:</span>
-                                        <span class="font-bold"><?php echo $stats['checkpoints_rejected']; ?></span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <h5 class="font-medium text-[#08324f] mb-3">Accomplishments</h5>
-                                <div class="space-y-2">
                                     <div class="flex justify-between">
                                         <span>Border Control:</span>
                                         <span class="font-bold"><?php echo $stats['border_ops']; ?></span>
@@ -634,34 +700,62 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                                         <span>Arrests:</span>
                                         <span class="font-bold"><?php echo $stats['checkpoint_arrests']; ?></span>
                                     </div>
+                                    <div class="flex justify-between border-t pt-2 mt-2">
+                                        <span>Personnel:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoint_personnel']; ?></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h5 class="font-medium text-[#08324f] mb-3">Disposition & Violations</h5>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <span>Fixed:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoint_fixed']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Fined:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoint_fined']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Warned:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoint_warned']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Charged:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoint_charged']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between border-b pb-2 mb-2">
+                                        <span>Community:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoint_community']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Drinking:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoint_drinking']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Smoking:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoint_smoking']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Curfew:</span>
+                                        <span class="font-bold"><?php echo $stats['checkpoint_curfew']; ?></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Oplan Tab (hidden initially) -->
+                    <!-- Oplan Tab -->
                     <div id="tab-oplan" class="tab-content hidden">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="bg-gray-50 p-4 rounded-lg">
-                                <h5 class="font-medium text-[#08324f] mb-3">Status Breakdown</h5>
+                                <h5 class="font-medium text-[#08324f] mb-3">Operations</h5>
                                 <div class="space-y-2">
                                     <div class="flex justify-between">
-                                        <span class="text-green-600">✓ Approved:</span>
-                                        <span class="font-bold"><?php echo $stats['oplans_approved']; ?></span>
+                                        <span>Total Oplans:</span>
+                                        <span class="font-bold"><?php echo $stats['oplans']; ?></span>
                                     </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-yellow-600">⏳ Pending:</span>
-                                        <span class="font-bold"><?php echo $stats['oplans_pending']; ?></span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-red-600">✗ Rejected:</span>
-                                        <span class="font-bold"><?php echo $stats['oplans_rejected']; ?></span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <h5 class="font-medium text-[#08324f] mb-3">Accomplishments</h5>
-                                <div class="space-y-2">
                                     <div class="flex justify-between">
                                         <span>Oplan Bakal:</span>
                                         <span class="font-bold"><?php echo $stats['bakal']; ?></span>
@@ -671,16 +765,69 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                                         <span class="font-bold"><?php echo $stats['sita']; ?></span>
                                     </div>
                                     <div class="flex justify-between">
-                                        <span>🔫 Firearms:</span>
+                                        <span>Firearms:</span>
                                         <span class="font-bold"><?php echo $stats['firearms']; ?></span>
                                     </div>
                                     <div class="flex justify-between">
-                                        <span>📦 Contraband:</span>
+                                        <span>Contraband:</span>
                                         <span class="font-bold"><?php echo number_format($stats['contraband'], 2); ?> kg</span>
                                     </div>
                                     <div class="flex justify-between">
-                                        <span>🚔 Arrests:</span>
+                                        <span>Kontra Boga:</span>
+                                        <span class="font-bold"><?php echo $stats['kontra_boga']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Anti-Vaping:</span>
+                                        <span class="font-bold"><?php echo $stats['anti_vaping']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>House Visits:</span>
+                                        <span class="font-bold"><?php echo $stats['house_visits']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between border-t pt-2 mt-2">
+                                        <span>Personnel:</span>
+                                        <span class="font-bold"><?php echo $stats['oplan_personnel']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Arrests:</span>
                                         <span class="font-bold"><?php echo $stats['oplan_arrests']; ?></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h5 class="font-medium text-[#08324f] mb-3">Disposition & Violations</h5>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <span>Fixed:</span>
+                                        <span class="font-bold"><?php echo $stats['oplan_fixed']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Fined:</span>
+                                        <span class="font-bold"><?php echo $stats['oplan_fined']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Warned:</span>
+                                        <span class="font-bold"><?php echo $stats['oplan_warned']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Charged:</span>
+                                        <span class="font-bold"><?php echo $stats['oplan_charged']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between border-b pb-2 mb-2">
+                                        <span>Community:</span>
+                                        <span class="font-bold"><?php echo $stats['oplan_community']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Drinking:</span>
+                                        <span class="font-bold"><?php echo $stats['oplan_drinking']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Smoking:</span>
+                                        <span class="font-bold"><?php echo $stats['oplan_smoking']; ?></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Curfew:</span>
+                                        <span class="font-bold"><?php echo $stats['oplan_curfew']; ?></span>
                                     </div>
                                 </div>
                             </div>
@@ -719,12 +866,8 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                                     <p class="text-sm text-gray-600 mt-1"><?php echo $activity['specific_location']; ?></p>
                                 </div>
                                 <div class="text-right">
-                                    <span class="px-3 py-1 rounded-full text-xs font-semibold
-                                        <?php 
-                                        echo $activity['status'] == 'approved' ? 'bg-green-100 text-green-800' : 
-                                            ($activity['status'] == 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'); 
-                                        ?>">
-                                        <?php echo ucfirst($activity['status']); ?>
+                                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                        Approved
                                     </span>
                                     <p class="text-xs text-gray-500 mt-1">
                                         <?php echo date('M d, Y', strtotime($activity['activity_date'])); ?>
