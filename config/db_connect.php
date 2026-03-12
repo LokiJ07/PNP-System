@@ -2,6 +2,7 @@
 // =====================================================
 // FILE: config/db_connect.php
 // PURPOSE: Database connection for all pages
+// FIXED: Added MySQL timezone setting for Philippine Time
 // =====================================================
 
 // Database configuration
@@ -10,7 +11,7 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_NAME', 'pnp_database');
 
-// Set Philippine timezone (GLOBAL for the app)
+// Set Philippine timezone (GLOBAL for PHP)
 date_default_timezone_set('Asia/Manila');
 
 // Create connection
@@ -23,6 +24,13 @@ if ($conn->connect_error) {
 
 // Set charset to UTF-8
 $conn->set_charset("utf8");
+
+// ===== FIX: Set MySQL timezone to Philippine Time (UTC+8) =====
+$conn->query("SET time_zone = '+08:00'");
+
+// Optional: Check if timezone was set correctly
+$timezone_check = $conn->query("SELECT @@session.time_zone as tz")->fetch_assoc();
+// Uncomment to debug: error_log("MySQL Timezone: " . $timezone_check['tz']);
 
 // Start session for user login management
 if (session_status() == PHP_SESSION_NONE) {
@@ -63,5 +71,32 @@ function logActivity($user_id, $action, $table_name, $record_id, $details = '', 
     $stmt->bind_param("ississ", $user_id, $action, $table_name, $record_id, $details, $ip);
     $stmt->execute();
     $stmt->close();
+}
+
+// Helper function to get current Philippine time
+function now() {
+    return date('Y-m-d H:i:s');
+}
+
+// Helper function to format date in Philippine format
+function formatDate($date_string, $format = 'F d, Y h:i A') {
+    if (empty($date_string)) return 'N/A';
+    return date($format, strtotime($date_string));
+}
+
+// Helper function to get Philippine date for MySQL
+function phDate($date_string = null) {
+    if ($date_string === null) {
+        return date('Y-m-d');
+    }
+    return date('Y-m-d', strtotime($date_string));
+}
+
+// Helper function to get Philippine time for MySQL
+function phTime($time_string = null) {
+    if ($time_string === null) {
+        return date('H:i:s');
+    }
+    return date('H:i:s', strtotime($time_string));
 }
 ?>
