@@ -471,7 +471,6 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             <div class="text-center mb-6">
                 <h2 class="text-lg font-bold uppercase">ACCOMPLISHMENT REPORT</h2>
                 <p class="text-base"><?php echo date('F d, Y', strtotime($from_date)); ?> - <?php echo date('F d, Y', strtotime($to_date)); ?></p>
-                <p class="text-xs text-green-600 mt-1"><i class="fas fa-check-circle mr-1"></i> All reports are auto-approved</p>
             </div>
 
             <!-- SUMMARY CARDS -->
