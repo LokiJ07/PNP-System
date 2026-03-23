@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mkdir($upload_dir, 0777, true);
         }
         
-        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'jfif'];
         $file_count = count($_FILES['photos']['name']);
         
         // Check if more than 5 files

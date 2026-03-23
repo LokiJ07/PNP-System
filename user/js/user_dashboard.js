@@ -1,6 +1,7 @@
 // =====================================================
 // FILE: user/js/user_dashboard.js
 // PURPOSE: All JavaScript functions for user dashboard
+// FIXED: Removed duplicate functions and declarations
 // =====================================================
 
 // ==================== MOBILE MENU FUNCTIONS ====================
@@ -36,7 +37,7 @@ let currentLat = 8.366379;
 let currentLng = 124.864432;
 let currentLayer = 'street';
 
-// Map layer definitions - FIXED VERSION WITH PROPER ZOOM
+// Map layer definitions
 const mapLayers = {
     street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -45,7 +46,7 @@ const mapLayers = {
     satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
         maxZoom: 20,
-        maxNativeZoom: 19  // FIX: This allows zooming beyond native resolution
+        maxNativeZoom: 19
     }),
     terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
         attribution: 'Map data: &copy; <a href="https://www.opentopomap.org">OpenTopoMap</a> contributors',
@@ -55,7 +56,7 @@ const mapLayers = {
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri',
             maxZoom: 20,
-            maxNativeZoom: 19  // FIX: Same fix for hybrid
+            maxNativeZoom: 19
         }),
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap',
@@ -72,20 +73,16 @@ const barangayCoords = {};
 function initMap(barangaysData) {
     if (!document.getElementById('map')) return;
     
-    // Populate barangayCoords from PHP data
     Object.assign(barangayCoords, barangaysData);
     
     let zoomLevel = window.innerWidth < 540 ? 11 : 12;
     
-    // Create map with default street layer
     map = L.map('map', {
         layers: [mapLayers.street]
     }).setView([currentLat, currentLng], zoomLevel);
 
-    // Add scale control
     L.control.scale({ imperial: false, metric: true }).addTo(map);
 
-    // Add geocoder control (search)
     L.Control.geocoder({
         defaultMarkGeocode: false,
         placeholder: 'Search location...',
@@ -113,20 +110,18 @@ function initMap(barangaysData) {
 function changeMapLayer(layerType) {
     if (!map) return;
     
-    // Remove all tile layers
     map.eachLayer(function(layer) {
         if (layer instanceof L.TileLayer || layer instanceof L.LayerGroup) {
             map.removeLayer(layer);
         }
     });
     
-    // Add selected layer
     if (layerType === 'street') {
         mapLayers.street.addTo(map);
         map.setMaxZoom(19);
     } else if (layerType === 'satellite') {
         mapLayers.satellite.addTo(map);
-        map.setMaxZoom(20); // Allow higher zoom for satellite
+        map.setMaxZoom(20);
     } else if (layerType === 'terrain') {
         mapLayers.terrain.addTo(map);
         map.setMaxZoom(17);
@@ -383,6 +378,32 @@ function toggleActivityFields(activityType) {
     }
 }
 
+// ==================== CONTRABAND CALCULATION ====================
+function calculateContrabandKg() {
+    const quantity = parseFloat(document.getElementById('contraband_quantity')?.value) || 0;
+    const unit = document.getElementById('contraband_unit')?.value || 'kg';
+    let kgValue = 0;
+    
+    switch(unit) {
+        case 'kg':
+            kgValue = quantity;
+            break;
+        case 'g':
+            kgValue = quantity / 1000;
+            break;
+        case 'mg':
+            kgValue = quantity / 1000000;
+            break;
+        default:
+            kgValue = 0;
+    }
+    
+    const kgField = document.getElementById('contraband_kg');
+    if (kgField) {
+        kgField.value = kgValue.toFixed(6);
+    }
+}
+
 // ==================== MODAL FUNCTIONS ====================
 function openModal() {
     const form = document.getElementById('activityForm');
@@ -494,10 +515,8 @@ function populateConfirmationModal() {
     document.getElementById('confirmOrdinanceTotal').textContent = ordinanceTotal;
     
     // ===== OPLAN FIELDS =====
-    // Apprehensions
     document.getElementById('confirmKontraBoga').textContent = document.querySelector('[name="kontra_boga"]')?.value || '0';
     document.getElementById('confirmAntiVaping').textContent = document.querySelector('[name="anti_vaping"]')?.value || '0';
-    document.getElementById('confirmContraband').textContent = document.querySelector('[name="contraband_kg"]')?.value || '0';
     document.getElementById('confirmOplanArrests').textContent = document.querySelector('[name="arrests_made"]')?.value || '0';
     document.getElementById('confirmHouseVisits').textContent = document.querySelector('[name="house_visitations"]')?.value || '0';
     
@@ -507,6 +526,31 @@ function populateConfirmationModal() {
     document.getElementById('confirmFasDeposit').textContent = document.querySelector('[name="fas_deposit"]')?.value || '0';
     document.getElementById('confirmRenewedFAS').textContent = document.querySelector('[name="renewed_fas"]')?.value || '0';
     
+    // ===== CONTRABAND DETAILS =====
+    const contrabandType = document.getElementById('contraband_type')?.value || '';
+    const contrabandOther = document.querySelector('[name="contraband_other"]')?.value || '';
+    const quantity = document.getElementById('contraband_quantity')?.value || '0';
+    const unit = document.getElementById('contraband_unit')?.value || 'kg';
+    const value = document.querySelector('[name="contraband_value"]')?.value || '0';
+    
+    let contrabandDisplay = 'None';
+    if (contrabandType) {
+        let typeText = contrabandType;
+        if (contrabandType === 'Other' && contrabandOther) {
+            typeText = contrabandOther;
+        }
+        contrabandDisplay = `${quantity} ${unit} of ${typeText}`;
+        if (parseFloat(value) > 0) {
+            contrabandDisplay += ` (₱${parseFloat(value).toLocaleString()} value)`;
+        }
+    }
+    
+    // Make sure the element exists before setting content
+    const confirmContrabandDetails = document.getElementById('confirmContrabandDetails');
+    if (confirmContrabandDetails) {
+        confirmContrabandDetails.textContent = contrabandDisplay;
+    }
+    
     // ===== DESCRIPTION =====
     document.getElementById('confirmDescription').textContent = document.querySelector('[name="accomplishment_description"]')?.value || 'No description provided';
     
@@ -515,7 +559,7 @@ function populateConfirmationModal() {
     let photoText = 'No photos uploaded';
     let photoList = '';
     
-    if (photoInput.files.length > 0) {
+    if (photoInput && photoInput.files.length > 0) {
         photoText = `${photoInput.files.length} photo(s) selected:`;
         photoList = '<ul class="list-disc pl-4 mt-1 text-xs">';
         for (let i = 0; i < photoInput.files.length; i++) {
@@ -595,11 +639,21 @@ function submitConfirmedReport() {
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
+    // Form submission handler
     const form = document.getElementById('activityForm');
     if (form) {
         form.onsubmit = function(e) {
             e.preventDefault();
             return openModal();
         };
+    }
+
+    // Contraband calculation listeners
+    const quantityInput = document.getElementById('contraband_quantity');
+    const unitSelect = document.getElementById('contraband_unit');
+    
+    if (quantityInput && unitSelect) {
+        quantityInput.addEventListener('input', calculateContrabandKg);
+        unitSelect.addEventListener('change', calculateContrabandKg);
     }
 });

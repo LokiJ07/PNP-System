@@ -1,7 +1,8 @@
 <?php
 // =====================================================
 // FILE: user/user_dashboard.php
-// PURPOSE: User dashboard with updated Oplan Sita/Bakal fields
+// PURPOSE: User dashboard with improved contraband fields
+// UPDATED: Added contraband type, unit selection, quantity
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
@@ -400,184 +401,252 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
             </div>
         </div>
 
- <!-- Activity Form -->
-<div class="bg-white p-3 md:p-5 rounded-lg shadow-md">
-    <h3 class="text-base md:text-lg font-semibold text-[#08324f] mb-3 md:mb-4">Report New Activity</h3>
-    
-    <form id="activityForm" method="POST" action="submit_activity.php" enctype="multipart/form-data">
-        <input type="hidden" id="selectedLat" name="latitude">
-        <input type="hidden" id="selectedLng" name="longitude">
-        <input type="hidden" id="selectedBarangayId" name="barangay_id">
-        <input type="hidden" id="gps_accuracy" name="gps_accuracy" value="">
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Activity Type *</label>
-                <select name="activity_type" id="activity_type" required class="w-full p-2.5 text-sm border border-gray-300 rounded-lg" onchange="toggleActivityFields(this.value)">
-                    <option value="">Select Type</option>
-                    <option value="Foot Patrol">Foot Patrol</option>
-                    <option value="Mobile Patrol">Mobile Patrol</option>
-                    <option value="Motorcycle Patrol">Motorcycle Patrol</option>
-                    <option value="checkpoint">Checkpoint</option>
-                    <option value="Oplan Bakal">Oplan Bakal</option>
-                    <option value="Oplan Sita">Oplan Sita</option>
-                </select>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                <input type="text" id="specificLocation" name="specific_location" readonly 
-                       class="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50" 
-                       placeholder="Click on map to set location" required>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
-                <input type="date" name="activity_date" id="activity_date" required value="<?php echo $current_date; ?>" 
-                       class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Time *</label>
-                <input type="time" name="activity_time" id="activity_time" required value="<?php echo $current_time; ?>" 
-                       class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
-            </div>
-        </div>
-
-        <!-- Personnel Field (for all except checkpoint) -->
-        <div id="personnelField" class="mt-4 hidden">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Number of Personnel *</label>
-            <input type="number" name="personnel_count" min="1" value="1" class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
-        </div>
-
-        <!-- Vehicle Field (for mobile patrols) -->
-        <div id="vehicleField" class="mt-4 hidden">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle/Unit Number</label>
-            <input type="text" name="vehicle_number" placeholder="e.g., MCS-101" class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
-        </div>
-
-        <!-- CHECKPOINT FIELDS -->
-        <div id="checkpointFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
-            <h4 class="font-medium text-sm mb-3 text-[#08324f]">Checkpoint Details</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div><label class="block text-xs text-gray-600 mb-1">Border Control Ops</label><input type="number" name="border_control_ops" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Border Personnel</label><input type="number" name="border_personnel" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Overlapping Ops</label><input type="number" name="overlapping_ops" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Mobile Checkpoint Ops</label><input type="number" name="mobile_checkpoint_ops" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Mobile Personnel</label><input type="number" name="mobile_personnel" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">TCT/OVR Accomplishment</label><input type="number" name="tct_ovr_accomplishment" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Arrests Made</label><input type="number" name="arrested_accomplishment" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-            </div>
+        <!-- Activity Form -->
+        <div class="bg-white p-3 md:p-5 rounded-lg shadow-md">
+            <h3 class="text-base md:text-lg font-semibold text-[#08324f] mb-3 md:mb-4">Report New Activity</h3>
             
-            <!-- DISPOSITION SECTION -->
-            <div class="mt-4">
-                <h5 class="text-xs font-semibold text-gray-600 mb-2">DISPOSITION (Case Outcomes)</h5>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div><label class="block text-xs text-gray-600 mb-1">Fixed/Advised</label><input type="number" name="fixed_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Fined</label><input type="number" name="fined_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Warned/Released</label><input type="number" name="warned_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Charged</label><input type="number" name="charged_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Community Service</label><input type="number" name="community_service" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div class="md:col-span-3"><label class="block text-xs text-gray-600 mb-1">Others (Specify)</label><input type="text" name="disposition_others" placeholder="e.g., Transferred" class="w-full p-2 text-sm border rounded"></div>
+            <form id="activityForm" method="POST" action="submit_activity.php" enctype="multipart/form-data">
+                <input type="hidden" id="selectedLat" name="latitude">
+                <input type="hidden" id="selectedLng" name="longitude">
+                <input type="hidden" id="selectedBarangayId" name="barangay_id">
+                <input type="hidden" id="gps_accuracy" name="gps_accuracy" value="">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Activity Type *</label>
+                        <select name="activity_type" id="activity_type" required class="w-full p-2.5 text-sm border border-gray-300 rounded-lg" onchange="toggleActivityFields(this.value)">
+                            <option value="">Select Type</option>
+                            <option value="Foot Patrol">Foot Patrol</option>
+                            <option value="Mobile Patrol">Mobile Patrol</option>
+                            <option value="Motorcycle Patrol">Motorcycle Patrol</option>
+                            <option value="checkpoint">Checkpoint</option>
+                            <option value="Oplan Bakal">Oplan Bakal</option>
+                            <option value="Oplan Sita">Oplan Sita</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                        <input type="text" id="specificLocation" name="specific_location" readonly 
+                               class="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50" 
+                               placeholder="Click on map to set location" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                        <input type="date" name="activity_date" id="activity_date" required value="<?php echo $current_date; ?>" 
+                               class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Time *</label>
+                        <input type="time" name="activity_time" id="activity_time" required value="<?php echo $current_time; ?>" 
+                               class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- OPLAN BAKAL FIELDS -->
-        <div id="oplanBakalFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
-            <h4 class="font-medium text-sm mb-3 text-[#08324f]">Oplan Bakal Details (Firearms)</h4>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div><label class="block text-xs text-gray-600 mb-1">Firearms Seized</label><input type="number" name="firearms_seized" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Firearms (CRS)</label><input type="number" name="firearms_crs" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">FAS Deposits</label><input type="number" name="fas_deposit" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Renewed FAS</label><input type="number" name="renewed_fas" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Arrests Made</label><input type="number" name="arrests_made" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">House Visitations</label><input type="number" name="house_visitations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-            </div>
-        </div>
-
-        <!-- OPLAN SITA FIELDS -->
-        <div id="oplanSitaFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
-            <h4 class="font-medium text-sm mb-3 text-[#08324f]">Oplan Sita Details</h4>
-            
-            <!-- ORDINANCE VIOLATIONS -->
-            <div class="mb-4">
-                <h5 class="text-xs font-semibold text-gray-600 mb-2">ORDINANCE VIOLATIONS</h5>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    <div><label class="block text-xs text-gray-600 mb-1">Drinking</label><input type="number" name="drinking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Smoking</label><input type="number" name="smoking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Half-Naked</label><input type="number" name="halfnaked_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Curfew</label><input type="number" name="curfew_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Vandalism</label><input type="number" name="vandalism_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Other</label><input type="number" name="other_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                <!-- Personnel Field (for all except checkpoint) -->
+                <div id="personnelField" class="mt-4 hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Number of Personnel *</label>
+                    <input type="number" name="personnel_count" min="1" value="1" class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
                 </div>
-                <input type="text" name="other_violations_desc" placeholder="Specify other violations" class="w-full p-2 mt-2 text-sm border rounded">
-            </div>
-            
-            <!-- APPREHENSIONS -->
-            <div class="mb-4">
-                <h5 class="text-xs font-semibold text-gray-600 mb-2">APPREHENSIONS</h5>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-xs text-gray-600 mb-1">Arrests Made</label><input type="number" name="arrests_made" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Contraband (kg)</label><input type="number" step="0.01" name="contraband_kg" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Kontra Boga</label><input type="number" name="kontra_boga" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Anti-Vaping</label><input type="number" name="anti_vaping" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+
+                <!-- Vehicle Field (for mobile patrols) -->
+                <div id="vehicleField" class="mt-4 hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle/Unit Number</label>
+                    <input type="text" name="vehicle_number" placeholder="e.g., MCS-101" class="w-full p-2.5 text-sm border border-gray-300 rounded-lg">
                 </div>
-            </div>
-            
-            <!-- DISPOSITION (same as checkpoint) -->
-            <div>
-                <h5 class="text-xs font-semibold text-gray-600 mb-2">DISPOSITION</h5>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div><label class="block text-xs text-gray-600 mb-1">Fixed</label><input type="number" name="fixed_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Fined</label><input type="number" name="fined_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Warned</label><input type="number" name="warned_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Charged</label><input type="number" name="charged_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">Community Service</label><input type="number" name="community_service" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                    <div class="md:col-span-3"><label class="block text-xs text-gray-600 mb-1">Others</label><input type="text" name="disposition_others" placeholder="e.g., Transferred" class="w-full p-2 text-sm border rounded"></div>
+
+                <!-- CHECKPOINT FIELDS -->
+                <div id="checkpointFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Checkpoint Details</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div><label class="block text-xs text-gray-600 mb-1">Border Control Ops</label><input type="number" name="border_control_ops" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Border Personnel</label><input type="number" name="border_personnel" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Overlapping Ops</label><input type="number" name="overlapping_ops" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Mobile Checkpoint Ops</label><input type="number" name="mobile_checkpoint_ops" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Mobile Personnel</label><input type="number" name="mobile_personnel" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">TCT/OVR Accomplishment</label><input type="number" name="tct_ovr_accomplishment" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Arrests Made</label><input type="number" name="arrested_accomplishment" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                    </div>
+                    
+                    <!-- DISPOSITION SECTION -->
+                    <div class="mt-4">
+                        <h5 class="text-xs font-semibold text-gray-600 mb-2">DISPOSITION (Case Outcomes)</h5>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div><label class="block text-xs text-gray-600 mb-1">Fixed/Advised</label><input type="number" name="fixed_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Fined</label><input type="number" name="fined_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Warned/Released</label><input type="number" name="warned_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Charged</label><input type="number" name="charged_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Community Service</label><input type="number" name="community_service" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div class="md:col-span-3"><label class="block text-xs text-gray-600 mb-1">Others (Specify)</label><input type="text" name="disposition_others" placeholder="e.g., Transferred" class="w-full p-2 text-sm border rounded"></div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- PATROL VIOLATION FIELDS -->
-        <div id="patrolViolationFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
-            <h4 class="font-medium text-sm mb-3 text-[#08324f]">Violations Encountered</h4>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div><label class="block text-xs text-gray-600 mb-1">Drinking</label><input type="number" name="drinking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Smoking</label><input type="number" name="smoking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Half-Naked</label><input type="number" name="halfnaked_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Curfew</label><input type="number" name="curfew_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Vandalism</label><input type="number" name="vandalism_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Other</label><input type="number" name="other_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
-            </div>
-            <input type="text" name="other_violations_desc" placeholder="Specify other violations" class="w-full p-2 mt-2 text-sm border rounded">
-        </div>
+                <!-- OPLAN BAKAL FIELDS -->
+                <div id="oplanBakalFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Oplan Bakal Details (Firearms)</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div><label class="block text-xs text-gray-600 mb-1">Firearms Seized</label><input type="number" name="firearms_seized" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Firearms (CRS)</label><input type="number" name="firearms_crs" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">FAS Deposits</label><input type="number" name="fas_deposit" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Renewed FAS</label><input type="number" name="renewed_fas" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Arrests Made</label><input type="number" name="arrests_made" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">House Visitations</label><input type="number" name="house_visitations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                    </div>
+                </div>
 
-        <!-- Accomplishment Description -->
-        <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Accomplishment Description *</label>
-            <textarea name="accomplishment_description" id="accomplishment_description" rows="4" required
-                      class="w-full p-3 text-sm border border-gray-300 rounded-lg" 
-                      placeholder="Describe in detail what you accomplished during this activity..."></textarea>
-        </div>
+                <!-- ===== UPDATED OPLAN SITA FIELDS ===== -->
+                <div id="oplanSitaFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Oplan Sita Details</h4>
+                    
+                    <!-- ORDINANCE VIOLATIONS -->
+                    <div class="mb-4">
+                        <h5 class="text-xs font-semibold text-gray-600 mb-2">ORDINANCE VIOLATIONS</h5>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <div><label class="block text-xs text-gray-600 mb-1">Drinking</label><input type="number" name="drinking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Smoking</label><input type="number" name="smoking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Half-Naked</label><input type="number" name="halfnaked_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Curfew</label><input type="number" name="curfew_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Vandalism</label><input type="number" name="vandalism_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Other</label><input type="number" name="other_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        </div>
+                        <input type="text" name="other_violations_desc" placeholder="Specify other violations" class="w-full p-2 mt-2 text-sm border rounded">
+                    </div>
+                    
+                    <!-- ===== IMPROVED APPREHENSIONS SECTION ===== -->
+                    <div class="mb-4">
+                        <h5 class="text-xs font-semibold text-gray-600 mb-2">APPREHENSIONS</h5>
+                        
+                        <!-- Contraband Type Selection -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div class="col-span-2">
+                                <label class="block text-xs text-gray-600 mb-1">Contraband Type</label>
+                                <select name="contraband_type" id="contraband_type" class="w-full p-2 text-sm border rounded">
+                                    <option value="">Select Type (Optional)</option>
+                                    <option value="Marijuana">🌿 Marijuana</option>
+                                    <option value="Shabu">❄️ Shabu (Methamphetamine)</option>
+                                    <option value="Cocaine">⚪ Cocaine</option>
+                                    <option value="Weapons">🔪 Deadly Weapons</option>
+                                    <option value="Firearms">🔫 Firearms</option>
+                                    <option value="Ammunition">🎯 Ammunition</option>
+                                    <option value="Liquor">🍺 Liquor</option>
+                                    <option value="Cigarettes">🚬 Cigarettes</option>
+                                    <option value="Firecrackers">💥 Firecrackers</option>
+                                    <option value="Gambling Paraphernalia">🎲 Gambling Paraphernalia</option>
+                                    <option value="Other">📦 Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Other (specify)</label>
+                                <input type="text" name="contraband_other" placeholder="e.g., Fake money" class="w-full p-2 text-sm border rounded">
+                            </div>
+                        </div>
+                        
+                        <!-- Quantity with Unit Selection -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Quantity</label>
+                                <input type="number" name="contraband_quantity" id="contraband_quantity" value="0" min="0" step="0.01" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Unit</label>
+                                <select name="contraband_unit" id="contraband_unit" class="w-full p-2 text-sm border rounded">
+                                    <optgroup label="Weight">
+                                        <option value="kg">Kilograms (kg)</option>
+                                        <option value="g">Grams (g)</option>
+                                        <option value="mg">Milligrams (mg)</option>
+                                    </optgroup>
+                                    <optgroup label="Count">
+                                        <option value="pieces">Pieces</option>
+                                        <option value="packs">Packs</option>
+                                        <option value="bottles">Bottles</option>
+                                        <option value="sachets">Sachets</option>
+                                        <option value="sticks">Sticks</option>
+                                        <option value="boxes">Boxes</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs text-gray-600 mb-1">Estimated Value (PHP)</label>
+                                <input type="number" name="contraband_value" placeholder="Estimated value in pesos" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden field for database compatibility -->
+                        <input type="hidden" name="contraband_kg" id="contraband_kg" value="0">
+                        
+                        <!-- Other apprehension fields -->
+                        <div class="grid grid-cols-2 gap-3 mt-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Arrests Made</label>
+                                <input type="number" name="arrests_made" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Kontra Boga</label>
+                                <input type="number" name="kontra_boga" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Anti-Vaping</label>
+                                <input type="number" name="anti_vaping" value="0" min="0" class="w-full p-2 text-sm border rounded">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- DISPOSITION SECTION -->
+                    <div>
+                        <h5 class="text-xs font-semibold text-gray-600 mb-2">DISPOSITION</h5>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div><label class="block text-xs text-gray-600 mb-1">Fixed</label><input type="number" name="fixed_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Fined</label><input type="number" name="fined_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Warned</label><input type="number" name="warned_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Charged</label><input type="number" name="charged_count" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Community Service</label><input type="number" name="community_service" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                            <div class="md:col-span-3"><label class="block text-xs text-gray-600 mb-1">Others</label><input type="text" name="disposition_others" placeholder="e.g., Transferred" class="w-full p-2 text-sm border rounded"></div>
+                        </div>
+                    </div>
+                </div>
 
-        <!-- Photo Upload -->
-        <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Upload Photo Evidence (Max 5 photos, up to 15MB total)</label>
-            <input type="file" id="photos" name="photos[]" multiple accept="image/*" 
-                   class="w-full p-2 border border-gray-300 rounded-lg"
-                   onchange="validatePhotoUpload(this)">
-            <p class="text-xs text-gray-500 mt-1" id="photoUploadMessage"></p>
-        </div>
+                <!-- PATROL VIOLATION FIELDS -->
+                <div id="patrolViolationFields" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium text-sm mb-3 text-[#08324f]">Violations Encountered</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div><label class="block text-xs text-gray-600 mb-1">Drinking</label><input type="number" name="drinking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Smoking</label><input type="number" name="smoking_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Half-Naked</label><input type="number" name="halfnaked_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Curfew</label><input type="number" name="curfew_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Vandalism</label><input type="number" name="vandalism_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                        <div><label class="block text-xs text-gray-600 mb-1">Other</label><input type="number" name="other_violations" value="0" min="0" class="w-full p-2 text-sm border rounded"></div>
+                    </div>
+                    <input type="text" name="other_violations_desc" placeholder="Specify other violations" class="w-full p-2 mt-2 text-sm border rounded">
+                </div>
 
-        <!-- Submit Button -->
-        <div class="mt-6">
-            <button type="submit" class="w-full bg-[#1f6fb2] text-white py-3 rounded-lg hover:bg-[#0a3d62] transition font-semibold text-base">
-                <i class="fas fa-paper-plane mr-2"></i> REVIEW & SUBMIT
-            </button>
+                <!-- Accomplishment Description -->
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Accomplishment Description *</label>
+                    <textarea name="accomplishment_description" id="accomplishment_description" rows="4" required
+                              class="w-full p-3 text-sm border border-gray-300 rounded-lg" 
+                              placeholder="Describe in detail what you accomplished during this activity..."></textarea>
+                </div>
+
+                <!-- Photo Upload -->
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Upload Photo Evidence (Max 5 photos, up to 15MB total)</label>
+                    <input type="file" id="photos" name="photos[]" multiple accept="image/*" 
+                           class="w-full p-2 border border-gray-300 rounded-lg"
+                           onchange="validatePhotoUpload(this)">
+                    <p class="text-xs text-gray-500 mt-1" id="photoUploadMessage"></p>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="mt-6">
+                    <button type="submit" class="w-full bg-[#1f6fb2] text-white py-3 rounded-lg hover:bg-[#0a3d62] transition font-semibold text-base">
+                        <i class="fas fa-paper-plane mr-2"></i> REVIEW & SUBMIT
+                    </button>
+                </div>
+            </form>
         </div>
-    </form>
-</div>
 
         <!-- Recent Activities -->
         <div class="mt-6">
@@ -640,7 +709,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     </div>
                 </div>
                 
-                <!-- ===== BASIC INFORMATION SECTION ===== -->
+                <!-- BASIC INFORMATION SECTION -->
                 <div class="mb-6">
                     <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
                         <i class="fas fa-info-circle text-yellow-500 mr-2"></i> Basic Information
@@ -666,7 +735,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     </div>
                 </div>
                 
-                <!-- ===== PERSONNEL & VEHICLE SECTION ===== -->
+                <!-- PERSONNEL & VEHICLE SECTION -->
                 <div id="confirmPersonnelField" class="hidden mb-6">
                     <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
                         <i class="fas fa-users text-yellow-500 mr-2"></i> Personnel & Vehicle
@@ -683,7 +752,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     </div>
                 </div>
                 
-                <!-- ===== CHECKPOINT DETAILS SECTION ===== -->
+                <!-- CHECKPOINT DETAILS SECTION -->
                 <div id="confirmCheckpointFields" class="hidden mb-6">
                     <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
                         <i class="fas fa-map-marker-alt text-yellow-500 mr-2"></i> Checkpoint Operations
@@ -720,7 +789,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     </div>
                 </div>
                 
-                <!-- ===== ORDINANCE VIOLATIONS SECTION ===== -->
+                <!-- ORDINANCE VIOLATIONS SECTION -->
                 <div id="confirmOrdinanceSection" class="hidden mb-6">
                     <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
                         <i class="fas fa-gavel text-yellow-500 mr-2"></i> Ordinance Violations
@@ -758,7 +827,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     </div>
                 </div>
                 
-                <!-- ===== OPLAN DETAILS SECTION ===== -->
+                <!-- OPLAN DETAILS SECTION -->
                 <div id="confirmOplanFields" class="hidden mb-6">
                     <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
                         <i class="fas fa-shield-alt text-yellow-500 mr-2"></i> Oplan Details
@@ -787,8 +856,12 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                         </div>
                     </div>
                     
-                    <!-- Oplan Sita Specific -->
+                    <!-- Oplan Sita Specific - IMPROVED -->
                     <div id="confirmSitaSummary" class="hidden mb-4">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Contraband Details:</p>
+                        <div class="bg-gray-50 p-2 rounded-lg mb-2">
+                            <p class="text-sm" id="confirmContrabandDetails">None</p>
+                        </div>
                         <p class="text-sm font-medium text-gray-700 mb-2">Apprehensions:</p>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div class="bg-gray-50 p-2 rounded-lg">
@@ -798,10 +871,6 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                             <div class="bg-gray-50 p-2 rounded-lg">
                                 <p class="text-xs text-gray-500">Anti-Vaping OPNs</p>
                                 <p class="font-semibold" id="confirmAntiVaping">0</p>
-                            </div>
-                            <div class="bg-gray-50 p-2 rounded-lg">
-                                <p class="text-xs text-gray-500">Contraband (kg)</p>
-                                <p class="font-semibold" id="confirmContraband">0</p>
                             </div>
                         </div>
                     </div>
@@ -819,7 +888,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     </div>
                 </div>
                 
-                <!-- ===== DISPOSITION SECTION ===== -->
+                <!-- DISPOSITION SECTION -->
                 <div id="confirmDispositionSection" class="hidden mb-6">
                     <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
                         <i class="fas fa-balance-scale text-yellow-500 mr-2"></i> Case Disposition
@@ -852,7 +921,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     </div>
                 </div>
                 
-                <!-- ===== ACCOMPLISHMENT DESCRIPTION ===== -->
+                <!-- ACCOMPLISHMENT DESCRIPTION -->
                 <div class="mb-6">
                     <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
                         <i class="fas fa-file-alt text-yellow-500 mr-2"></i> Accomplishment Description
@@ -860,7 +929,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     <div class="p-4 bg-gray-50 rounded-lg text-sm whitespace-pre-wrap" id="confirmDescription">-</div>
                 </div>
                 
-                <!-- ===== PHOTOS ===== -->
+                <!-- PHOTOS -->
                 <div class="mb-6">
                     <h4 class="font-semibold text-[#08324f] mb-3 pb-2 border-b border-gray-200 flex items-center">
                         <i class="fas fa-camera text-yellow-500 mr-2"></i> Photo Evidence
@@ -868,7 +937,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     <div class="p-4 bg-gray-50 rounded-lg text-sm" id="confirmPhotos">No photos uploaded</div>
                 </div>
                 
-                <!-- ===== GPS ACCURACY ===== -->
+                <!-- GPS ACCURACY -->
                 <div class="text-xs text-gray-500 text-right" id="confirmGps"></div>
             </div>
             
