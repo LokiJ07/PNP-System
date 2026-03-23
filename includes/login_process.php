@@ -2,9 +2,13 @@
 // =====================================================
 // FILE: includes/login_process.php
 // PURPOSE: Process user login with password verification
+// FIXED: Added last_login update and session regeneration
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
+
+// Set Philippine timezone for accurate timestamps
+date_default_timezone_set('Asia/Manila');
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $email = trim($_POST['email'] ?? '');
@@ -32,10 +36,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             exit();
         }
         
-        // =====================================================
-        // IMPORTANT: VERIFY PASSWORD USING password_verify()
-        // =====================================================
+        // Verify password
         if (password_verify($password, $user['password'])) {
+            // Regenerate session ID for security
+            session_regenerate_id(true);
+            
             // Set session variables
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['email'] = $user['email'];
@@ -46,15 +51,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['role'] = $user['role'];
             $_SESSION['logged_in'] = true;
             
-            // Log the login activity
+            // =====================================================
+            // FIX: Update last_login timestamp
+            // =====================================================
+            $update_stmt = $conn->prepare("UPDATE users SET last_login = NOW() WHERE user_id = ?");
+            $update_stmt->bind_param("i", $user['user_id']);
+            $update_stmt->execute();
+            $update_stmt->close();
+            
+            // Log the login activity (optional)
             $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+            // Handle proxy
+            if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+            }
+            
             $log_stmt = $conn->prepare("
                 INSERT INTO activity_logs (user_id, action, table_name, record_id, details, ip_address) 
                 VALUES (?, 'LOGIN', 'users', ?, 'User logged in', ?)
             ");
-            $log_stmt->bind_param("iis", $user['user_id'], $user['user_id'], $ip);
-            $log_stmt->execute();
-            $log_stmt->close();
+            if ($log_stmt) {
+                $log_stmt->bind_param("iis", $user['user_id'], $user['user_id'], $ip);
+                $log_stmt->execute();
+                $log_stmt->close();
+            }
             
             // Redirect based on role
             if ($user['role'] === 'admin') {
@@ -64,12 +84,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
             exit();
         } else {
-            // Password verification failed
             error_log("Failed login attempt for email: $email - Invalid password");
             $_SESSION['error'] = "Invalid email or password";
         }
     } else {
-        // No user found with that email
         error_log("Failed login attempt for email: $email - User not found");
         $_SESSION['error'] = "Invalid email or password";
     }
