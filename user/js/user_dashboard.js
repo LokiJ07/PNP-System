@@ -1,7 +1,7 @@
 // =====================================================
 // FILE: user/js/user_dashboard.js
 // PURPOSE: All JavaScript functions for user dashboard
-// FIXED: Removed duplicate functions and declarations
+// UPDATED: Added collapsible map feature with PNP color scheme
 // =====================================================
 
 // ==================== MOBILE MENU FUNCTIONS ====================
@@ -29,6 +29,51 @@ window.addEventListener('resize', function() {
     if (window.innerWidth >= 768) closeMobileMenu(); 
 });
 
+// ==================== COLLAPSIBLE MAP FUNCTION ====================
+let mapCollapsed = false;
+
+function toggleMap() {
+    const mapContainer = document.getElementById('mapContent');
+    const mapElement = document.getElementById('map');
+    const toggleIcon = document.getElementById('mapToggleIcon');
+    const toggleText = document.getElementById('mapToggleText');
+    const mapContainerDiv = document.querySelector('.map-container');
+    
+    if (!mapCollapsed) {
+        // Collapse map with animation
+        mapContainer.style.display = 'none';
+        toggleIcon.className = 'fas fa-chevron-down';
+        toggleText.textContent = 'Expand Map';
+        mapCollapsed = true;
+        
+        // Add collapsed class for styling
+        if (mapContainerDiv) {
+            mapContainerDiv.classList.add('collapsed');
+        }
+    } else {
+        // Expand map
+        mapContainer.style.display = 'block';
+        toggleIcon.className = 'fas fa-chevron-up';
+        toggleText.textContent = 'Collapse Map';
+        mapCollapsed = false;
+        
+        // Remove collapsed class
+        if (mapContainerDiv) {
+            mapContainerDiv.classList.remove('collapsed');
+        }
+        
+        // Refresh map after expansion (important for proper rendering)
+        setTimeout(() => {
+            if (map) {
+                map.invalidateSize();
+                // Optional: recenter to current view
+                const currentCenter = map.getCenter();
+                map.setView([currentCenter.lat, currentCenter.lng], map.getZoom());
+            }
+        }, 300);
+    }
+}
+
 // ==================== MAP VARIABLES ====================
 let map;
 let marker;
@@ -37,7 +82,7 @@ let currentLat = 8.366379;
 let currentLng = 124.864432;
 let currentLayer = 'street';
 
-// Map layer definitions
+// Map layer definitions with PNP color theme
 const mapLayers = {
     street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -81,13 +126,20 @@ function initMap(barangaysData) {
         layers: [mapLayers.street]
     }).setView([currentLat, currentLng], zoomLevel);
 
+    // Add scale control
     L.control.scale({ imperial: false, metric: true }).addTo(map);
+    
+    // Add custom PNP styled attribution
+    map.attributionControl.setPrefix('PNP Manolo Fortich');
 
+    // Geocoder with custom styling
     L.Control.geocoder({
         defaultMarkGeocode: false,
         placeholder: 'Search location...',
         errorMessage: 'Location not found',
-        showResultIcons: true
+        showResultIcons: true,
+        collapsed: false,
+        position: 'topright'
     }).on('markgeocode', function(e) {
         const latlng = e.geocode.center;
         map.setView(latlng, 16);
@@ -102,9 +154,18 @@ function initMap(barangaysData) {
         findNearestBarangay(e.latlng.lat, e.latlng.lng);
     });
 
+    // Handle orientation changes
     window.addEventListener('orientationchange', function() {
         setTimeout(() => map.invalidateSize(), 200);
     });
+    
+    // Add layer control with PNP styling
+    const layerControl = L.control.layers({
+        '🗺️ Street Map': mapLayers.street,
+        '🛰️ Satellite': mapLayers.satellite,
+        '⛰️ Terrain': mapLayers.terrain,
+        '🗺️ Hybrid': mapLayers.hybrid
+    }, null, { position: 'topright' }).addTo(map);
 }
 
 function changeMapLayer(layerType) {
@@ -176,15 +237,15 @@ function placeMarker(lat, lng) {
                 html: '<div class="location-marker"></div>',
                 iconSize: [20, 20]
             })
-        }).addTo(map).bindPopup('Selected Location');
+        }).addTo(map).bindPopup('📍 Selected Location');
     }
     
     document.getElementById('selectedLat').value = lat.toFixed(6);
     document.getElementById('selectedLng').value = lng.toFixed(6);
     
     document.getElementById('locationInfo').classList.remove('hidden');
-    document.getElementById('locationText').innerHTML = `Selected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-    document.getElementById('coordinatesText').innerHTML = `Lat: ${lat.toFixed(6)}, Long: ${lng.toFixed(6)}`;
+    document.getElementById('locationText').innerHTML = `<i class="fas fa-map-marker-alt text-[#FFD700] mr-1"></i> Selected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    document.getElementById('coordinatesText').innerHTML = `📌 Lat: ${lat.toFixed(6)}, Long: ${lng.toFixed(6)}`;
     
     getElevation(lat, lng);
 }
@@ -195,10 +256,12 @@ function getElevation(lat, lng) {
         .then(data => {
             if (data.results && data.results[0]) {
                 const elevation = data.results[0].elevation;
-                document.getElementById('elevationText').innerHTML = `Elevation: ${Math.round(elevation)}m`;
+                document.getElementById('elevationText').innerHTML = `⛰️ Elevation: ${Math.round(elevation)}m`;
             }
         })
-        .catch(() => {});
+        .catch(() => {
+            document.getElementById('elevationText').innerHTML = `⛰️ Elevation: Not available`;
+        });
 }
 
 function reverseGeocode(lat, lng) {
@@ -209,7 +272,10 @@ function reverseGeocode(lat, lng) {
             document.getElementById('specificLocation').value = locationName.substring(0, 100);
             
             if (marker) {
-                marker.bindPopup(locationName.substring(0, 50)).openPopup();
+                marker.bindPopup(`
+                    <b>📍 Selected Location</b><br>
+                    ${locationName.substring(0, 80)}
+                `).openPopup();
             }
         })
         .catch(() => {
@@ -224,14 +290,21 @@ function zoomToBarangay(select) {
         map.setView([coords.lat, coords.lng], 16);
         placeMarker(coords.lat, coords.lng);
         document.getElementById('selectedBarangayId').value = barangayId;
-        document.getElementById('specificLocation').value = coords.name + ', Manolo Fortich';
+        document.getElementById('specificLocation').value = coords.name + ', Manolo Fortich, Bukidnon';
+        
+        // Show success message
+        const locationInfo = document.getElementById('locationInfo');
+        if (locationInfo) {
+            locationInfo.classList.remove('hidden');
+            document.getElementById('locationText').innerHTML = `<i class="fas fa-check-circle text-green-500 mr-1"></i> Barangay: ${coords.name}`;
+        }
     }
 }
 
 function getUserLocation() {
     if (navigator.geolocation) {
         document.getElementById('locationInfo').classList.remove('hidden');
-        document.getElementById('locationText').innerHTML = 'Getting your exact location...';
+        document.getElementById('locationText').innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Getting your exact location...';
         
         navigator.geolocation.getCurrentPosition(
             function(position) {
@@ -249,30 +322,34 @@ function getUserLocation() {
                         html: '<div class="user-location-marker"></div>',
                         iconSize: [20, 20]
                     })
-                }).addTo(map).bindPopup(`<b>Your Location</b><br>Accuracy: ${accuracy.toFixed(1)}m`).openPopup();
+                }).addTo(map).bindPopup(`
+                    <b>👮 Your Location</b><br>
+                    Accuracy: ${accuracy.toFixed(1)}m<br>
+                    <span class="text-xs text-green-600">PNP On Duty</span>
+                `).openPopup();
                 
                 placeMarker(lat, lng);
                 reverseGeocode(lat, lng);
                 findNearestBarangay(lat, lng);
                 document.getElementById('gps_accuracy').value = accuracy;
-                document.getElementById('locationText').innerHTML = `Your location (accuracy: ${accuracy.toFixed(1)}m)`;
+                document.getElementById('locationText').innerHTML = `<i class="fas fa-location-dot text-green-500 mr-1"></i> Your location (accuracy: ${accuracy.toFixed(1)}m)`;
                 setPhilippineDateTime();
             },
             function(error) {
                 let msg = 'Location error: ';
                 switch(error.code) {
-                    case error.PERMISSION_DENIED: msg += 'Please allow location access.'; break;
-                    case error.POSITION_UNAVAILABLE: msg += 'Location unavailable.'; break;
-                    case error.TIMEOUT: msg += 'Request timed out.'; break;
-                    default: msg += 'Unknown error.';
+                    case error.PERMISSION_DENIED: msg += 'Please allow location access for accurate reporting.'; break;
+                    case error.POSITION_UNAVAILABLE: msg += 'Location unavailable. Please select manually on map.'; break;
+                    case error.TIMEOUT: msg += 'Request timed out. Please try again.'; break;
+                    default: msg += 'Unknown error. Please select location manually.';
                 }
                 alert(msg);
                 document.getElementById('locationInfo').classList.add('hidden');
             },
-            { enableHighAccuracy: true, timeout: 10000 }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     } else {
-        alert('Geolocation not supported');
+        alert('Geolocation is not supported by your browser. Please select location manually on the map.');
     }
 }
 
@@ -292,7 +369,8 @@ function resetMapView() {
     setPhilippineDateTime();
     
     if (currentLayer !== 'street') {
-        document.getElementById('mapLayerSelect').value = 'street';
+        const layerSelect = document.getElementById('mapLayerSelect');
+        if (layerSelect) layerSelect.value = 'street';
         changeMapLayer('street');
     }
 }
@@ -311,8 +389,11 @@ function setPhilippineDateTime() {
     const minutes = String(phTime.getUTCMinutes()).padStart(2, '0');
     const phTimeStr = `${hours}:${minutes}`;
     
-    document.getElementById('activity_date').value = phDate;
-    document.getElementById('activity_time').value = phTimeStr;
+    const dateField = document.getElementById('activity_date');
+    const timeField = document.getElementById('activity_time');
+    
+    if (dateField) dateField.value = phDate;
+    if (timeField) timeField.value = phTimeStr;
 }
 
 function validatePhotoUpload(input) {
@@ -321,7 +402,7 @@ function validatePhotoUpload(input) {
     let totalSize = 0;
     
     if (files.length > 5) {
-        messageEl.innerHTML = '<span class="text-red-500">Maximum 5 photos allowed</span>';
+        messageEl.innerHTML = '<span class="text-red-500"><i class="fas fa-exclamation-circle mr-1"></i> Maximum 5 photos allowed</span>';
         input.value = '';
         return;
     }
@@ -333,48 +414,56 @@ function validatePhotoUpload(input) {
     const totalSizeMB = totalSize / (1024 * 1024);
     
     if (totalSizeMB > 15) {
-        messageEl.innerHTML = '<span class="text-red-500">Total file size must be less than 15MB</span>';
+        messageEl.innerHTML = '<span class="text-red-500"><i class="fas fa-exclamation-circle mr-1"></i> Total file size must be less than 15MB</span>';
         input.value = '';
     } else {
-        messageEl.innerHTML = `<span class="text-green-500">Selected ${files.length} file(s) (${totalSizeMB.toFixed(2)}MB)</span>`;
+        messageEl.innerHTML = `<span class="text-green-500"><i class="fas fa-check-circle mr-1"></i> Selected ${files.length} file(s) (${totalSizeMB.toFixed(2)}MB)</span>`;
     }
 }
 
 function toggleActivityFields(activityType) {
     // Hide all fields first
-    document.getElementById('personnelField').classList.add('hidden');
-    document.getElementById('vehicleField').classList.add('hidden');
-    document.getElementById('checkpointFields').classList.add('hidden');
-    document.getElementById('oplanBakalFields').classList.add('hidden');
-    document.getElementById('oplanSitaFields').classList.add('hidden');
-    document.getElementById('patrolViolationFields').classList.add('hidden');
+    const fields = [
+        'personnelField', 'vehicleField', 'checkpointFields', 
+        'oplanBakalFields', 'oplanSitaFields', 'patrolViolationFields'
+    ];
+    fields.forEach(field => {
+        const element = document.getElementById(field);
+        if (element) element.classList.add('hidden');
+    });
     
     // Show personnel field for all except checkpoint
     if (activityType && activityType !== 'checkpoint') {
-        document.getElementById('personnelField').classList.remove('hidden');
+        const personnelField = document.getElementById('personnelField');
+        if (personnelField) personnelField.classList.remove('hidden');
     }
     
     // Show vehicle field for mobile patrols
     if (activityType === 'Mobile Patrol' || activityType === 'Motorcycle Patrol') {
-        document.getElementById('vehicleField').classList.remove('hidden');
+        const vehicleField = document.getElementById('vehicleField');
+        if (vehicleField) vehicleField.classList.remove('hidden');
     }
     
     // Show appropriate fields based on type
     if (activityType === 'checkpoint') {
-        document.getElementById('checkpointFields').classList.remove('hidden');
+        const checkpointFields = document.getElementById('checkpointFields');
+        if (checkpointFields) checkpointFields.classList.remove('hidden');
     }
     
     if (activityType === 'Oplan Bakal') {
-        document.getElementById('oplanBakalFields').classList.remove('hidden');
+        const oplanBakalFields = document.getElementById('oplanBakalFields');
+        if (oplanBakalFields) oplanBakalFields.classList.remove('hidden');
     }
     
     if (activityType === 'Oplan Sita') {
-        document.getElementById('oplanSitaFields').classList.remove('hidden');
+        const oplanSitaFields = document.getElementById('oplanSitaFields');
+        if (oplanSitaFields) oplanSitaFields.classList.remove('hidden');
     }
     
     // Patrols can also have violations
     if (activityType && activityType.includes('Patrol')) {
-        document.getElementById('patrolViolationFields').classList.remove('hidden');
+        const patrolViolationFields = document.getElementById('patrolViolationFields');
+        if (patrolViolationFields) patrolViolationFields.classList.remove('hidden');
     }
 }
 
@@ -413,25 +502,31 @@ function openModal() {
     }
     
     if (!document.getElementById('selectedLat').value || !document.getElementById('selectedLng').value) {
-        alert('Please select a location on the map');
+        alert('⚠️ Please select a location on the map before submitting.');
         return false;
     }
     
     if (!document.getElementById('selectedBarangayId').value) {
-        alert('Please select a barangay');
+        alert('⚠️ Please select or verify the barangay location.');
         return false;
     }
     
     populateConfirmationModal();
     
-    document.getElementById('confirmationModal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    const modal = document.getElementById('confirmationModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
     return false;
 }
 
 function closeModal() {
-    document.getElementById('confirmationModal').classList.add('hidden');
-    document.body.style.overflow = '';
+    const modal = document.getElementById('confirmationModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
 }
 
 function closeModalOnOutsideClick(event) {
@@ -443,8 +538,9 @@ function closeModalOnOutsideClick(event) {
 function populateConfirmationModal() {
     // ===== BASIC INFO =====
     const activityTypeSelect = document.getElementById('activity_type');
-    const activityType = activityTypeSelect.options[activityTypeSelect.selectedIndex].text;
-    document.getElementById('confirmActivityType').textContent = activityType;
+    const activityType = activityTypeSelect.options[activityTypeSelect.selectedIndex]?.text || '-';
+    const confirmActivityType = document.getElementById('confirmActivityType');
+    if (confirmActivityType) confirmActivityType.textContent = activityType;
     
     const date = document.getElementById('activity_date').value;
     const time = document.getElementById('activity_time').value;
@@ -453,78 +549,106 @@ function populateConfirmationModal() {
         month: 'long', day: 'numeric', year: 'numeric',
         hour: 'numeric', minute: 'numeric', hour12: true 
     });
-    document.getElementById('confirmDateTime').textContent = formattedDateTime;
+    const confirmDateTime = document.getElementById('confirmDateTime');
+    if (confirmDateTime) confirmDateTime.textContent = formattedDateTime;
     
     const location = document.getElementById('specificLocation').value;
-    document.getElementById('confirmLocation').textContent = location || 'Not specified';
+    const confirmLocation = document.getElementById('confirmLocation');
+    if (confirmLocation) confirmLocation.textContent = location || 'Not specified';
     
     const lat = document.getElementById('selectedLat').value;
     const lng = document.getElementById('selectedLng').value;
-    document.getElementById('confirmCoordinates').textContent = `Lat: ${lat}, Long: ${lng}`;
+    const confirmCoordinates = document.getElementById('confirmCoordinates');
+    if (confirmCoordinates) confirmCoordinates.textContent = `Lat: ${lat}, Long: ${lng}`;
     
     // Barangay
     const barangaySelect = document.getElementById('barangaySelect');
     const barangayText = barangaySelect.options[barangaySelect.selectedIndex]?.text || 'Not selected';
-    document.getElementById('confirmBarangay').textContent = barangayText;
+    const confirmBarangay = document.getElementById('confirmBarangay');
+    if (confirmBarangay) confirmBarangay.textContent = barangayText;
     
     // Personnel & Vehicle
     const personnel = document.querySelector('[name="personnel_count"]')?.value || '-';
-    document.getElementById('confirmPersonnel').textContent = personnel;
+    const confirmPersonnel = document.getElementById('confirmPersonnel');
+    if (confirmPersonnel) confirmPersonnel.textContent = personnel;
     
     const vehicle = document.querySelector('[name="vehicle_number"]')?.value || 'None';
-    document.getElementById('confirmVehicle').textContent = vehicle;
+    const confirmVehicle = document.getElementById('confirmVehicle');
+    if (confirmVehicle) confirmVehicle.textContent = vehicle;
     
     // ===== CHECKPOINT FIELDS =====
-    document.getElementById('confirmBorderOps').textContent = document.querySelector('[name="border_control_ops"]')?.value || '0';
-    document.getElementById('confirmBorderPersonnel').textContent = document.querySelector('[name="border_personnel"]')?.value || '0';
-    document.getElementById('confirmOverlapping').textContent = document.querySelector('[name="overlapping_ops"]')?.value || '0';
-    document.getElementById('confirmMobileOps').textContent = document.querySelector('[name="mobile_checkpoint_ops"]')?.value || '0';
-    document.getElementById('confirmMobilePersonnel').textContent = document.querySelector('[name="mobile_personnel"]')?.value || '0';
-    document.getElementById('confirmTct').textContent = document.querySelector('[name="tct_ovr_accomplishment"]')?.value || '0';
-    document.getElementById('confirmArrests').textContent = document.querySelector('[name="arrested_accomplishment"]')?.value || '0';
+    const checkpointFields = ['border_control_ops', 'border_personnel', 'overlapping_ops', 
+                              'mobile_checkpoint_ops', 'mobile_personnel', 'tct_ovr_accomplishment', 
+                              'arrested_accomplishment'];
+    const checkpointIds = ['confirmBorderOps', 'confirmBorderPersonnel', 'confirmOverlapping', 
+                          'confirmMobileOps', 'confirmMobilePersonnel', 'confirmTct', 'confirmArrests'];
+    
+    checkpointFields.forEach((field, index) => {
+        const element = document.getElementById(checkpointIds[index]);
+        if (element) {
+            element.textContent = document.querySelector(`[name="${field}"]`)?.value || '0';
+        }
+    });
     
     // ===== DISPOSITION FIELDS =====
-    document.getElementById('confirmFixed').textContent = document.querySelector('[name="fixed_count"]')?.value || '0';
-    document.getElementById('confirmFined').textContent = document.querySelector('[name="fined_count"]')?.value || '0';
-    document.getElementById('confirmWarned').textContent = document.querySelector('[name="warned_count"]')?.value || '0';
-    document.getElementById('confirmCharged').textContent = document.querySelector('[name="charged_count"]')?.value || '0';
-    document.getElementById('confirmCommunityService').textContent = document.querySelector('[name="community_service"]')?.value || '0';
+    const dispositionFields = ['fixed_count', 'fined_count', 'warned_count', 'charged_count', 'community_service'];
+    const dispositionIds = ['confirmFixed', 'confirmFined', 'confirmWarned', 'confirmCharged', 'confirmCommunityService'];
+    
+    dispositionFields.forEach((field, index) => {
+        const element = document.getElementById(dispositionIds[index]);
+        if (element) {
+            element.textContent = document.querySelector(`[name="${field}"]`)?.value || '0';
+        }
+    });
     
     const dispositionOthers = document.querySelector('[name="disposition_others"]')?.value;
-    document.getElementById('confirmDispositionOthers').textContent = dispositionOthers || 'None';
+    const confirmDispositionOthers = document.getElementById('confirmDispositionOthers');
+    if (confirmDispositionOthers) confirmDispositionOthers.textContent = dispositionOthers || 'None';
     
     // ===== ORDINANCE VIOLATIONS =====
-    const drinking = parseInt(document.querySelector('[name="drinking_violations"]')?.value) || 0;
-    const smoking = parseInt(document.querySelector('[name="smoking_violations"]')?.value) || 0;
-    const halfnaked = parseInt(document.querySelector('[name="halfnaked_violations"]')?.value) || 0;
-    const curfew = parseInt(document.querySelector('[name="curfew_violations"]')?.value) || 0;
-    const vandalism = parseInt(document.querySelector('[name="vandalism_violations"]')?.value) || 0;
-    const other = parseInt(document.querySelector('[name="other_violations"]')?.value) || 0;
-    const ordinanceTotal = drinking + smoking + halfnaked + curfew + vandalism + other;
+    const violationFields = ['drinking_violations', 'smoking_violations', 'halfnaked_violations', 
+                            'curfew_violations', 'vandalism_violations', 'other_violations'];
+    const violationIds = ['confirmDrinking', 'confirmSmoking', 'confirmHalfNaked', 
+                         'confirmCurfew', 'confirmVandalism', 'confirmOtherViolations'];
     
-    document.getElementById('confirmDrinking').textContent = drinking;
-    document.getElementById('confirmSmoking').textContent = smoking;
-    document.getElementById('confirmHalfNaked').textContent = halfnaked;
-    document.getElementById('confirmCurfew').textContent = curfew;
-    document.getElementById('confirmVandalism').textContent = vandalism;
-    document.getElementById('confirmOtherViolations').textContent = other;
+    let ordinanceTotal = 0;
+    violationFields.forEach((field, index) => {
+        const value = parseInt(document.querySelector(`[name="${field}"]`)?.value) || 0;
+        ordinanceTotal += value;
+        const element = document.getElementById(violationIds[index]);
+        if (element) element.textContent = value;
+    });
     
     const otherViolationsDesc = document.querySelector('[name="other_violations_desc"]')?.value;
-    document.getElementById('confirmOtherViolationsDesc').textContent = otherViolationsDesc ? `(${otherViolationsDesc})` : '';
+    const confirmOtherViolationsDesc = document.getElementById('confirmOtherViolationsDesc');
+    if (confirmOtherViolationsDesc) {
+        confirmOtherViolationsDesc.textContent = otherViolationsDesc ? `(${otherViolationsDesc})` : '';
+    }
     
-    document.getElementById('confirmOrdinanceTotal').textContent = ordinanceTotal;
+    const confirmOrdinanceTotal = document.getElementById('confirmOrdinanceTotal');
+    if (confirmOrdinanceTotal) confirmOrdinanceTotal.textContent = ordinanceTotal;
     
     // ===== OPLAN FIELDS =====
-    document.getElementById('confirmKontraBoga').textContent = document.querySelector('[name="kontra_boga"]')?.value || '0';
-    document.getElementById('confirmAntiVaping').textContent = document.querySelector('[name="anti_vaping"]')?.value || '0';
-    document.getElementById('confirmOplanArrests').textContent = document.querySelector('[name="arrests_made"]')?.value || '0';
-    document.getElementById('confirmHouseVisits').textContent = document.querySelector('[name="house_visitations"]')?.value || '0';
+    const oplanFields = ['kontra_boga', 'anti_vaping', 'arrests_made', 'house_visitations'];
+    const oplanIds = ['confirmKontraBoga', 'confirmAntiVaping', 'confirmOplanArrests', 'confirmHouseVisits'];
+    
+    oplanFields.forEach((field, index) => {
+        const element = document.getElementById(oplanIds[index]);
+        if (element) {
+            element.textContent = document.querySelector(`[name="${field}"]`)?.value || '0';
+        }
+    });
     
     // Bakal specific
-    document.getElementById('confirmFirearms').textContent = document.querySelector('[name="firearms_seized"]')?.value || '0';
-    document.getElementById('confirmFirearmsCRS').textContent = document.querySelector('[name="firearms_crs"]')?.value || '0';
-    document.getElementById('confirmFasDeposit').textContent = document.querySelector('[name="fas_deposit"]')?.value || '0';
-    document.getElementById('confirmRenewedFAS').textContent = document.querySelector('[name="renewed_fas"]')?.value || '0';
+    const bakalFields = ['firearms_seized', 'firearms_crs', 'fas_deposit', 'renewed_fas'];
+    const bakalIds = ['confirmFirearms', 'confirmFirearmsCRS', 'confirmFasDeposit', 'confirmRenewedFAS'];
+    
+    bakalFields.forEach((field, index) => {
+        const element = document.getElementById(bakalIds[index]);
+        if (element) {
+            element.textContent = document.querySelector(`[name="${field}"]`)?.value || '0';
+        }
+    });
     
     // ===== CONTRABAND DETAILS =====
     const contrabandType = document.getElementById('contraband_type')?.value || '';
@@ -545,14 +669,16 @@ function populateConfirmationModal() {
         }
     }
     
-    // Make sure the element exists before setting content
     const confirmContrabandDetails = document.getElementById('confirmContrabandDetails');
     if (confirmContrabandDetails) {
         confirmContrabandDetails.textContent = contrabandDisplay;
     }
     
     // ===== DESCRIPTION =====
-    document.getElementById('confirmDescription').textContent = document.querySelector('[name="accomplishment_description"]')?.value || 'No description provided';
+    const confirmDescription = document.getElementById('confirmDescription');
+    if (confirmDescription) {
+        confirmDescription.textContent = document.querySelector('[name="accomplishment_description"]')?.value || 'No description provided';
+    }
     
     // ===== PHOTOS =====
     const photoInput = document.querySelector('[name="photos[]"]');
@@ -565,64 +691,78 @@ function populateConfirmationModal() {
         for (let i = 0; i < photoInput.files.length; i++) {
             const file = photoInput.files[i];
             const fileSize = (file.size / 1024).toFixed(1);
-            photoList += `<li>${file.name} (${fileSize} KB)</li>`;
+            photoList += `<li>📸 ${file.name} (${fileSize} KB)</li>`;
         }
         photoList += '</ul>';
     }
     
-    document.getElementById('confirmPhotos').innerHTML = photoText + photoList;
+    const confirmPhotos = document.getElementById('confirmPhotos');
+    if (confirmPhotos) {
+        confirmPhotos.innerHTML = photoText + photoList;
+    }
     
     // ===== GPS ACCURACY =====
     const gpsAccuracy = document.getElementById('gps_accuracy').value;
-    document.getElementById('confirmGps').textContent = gpsAccuracy ? `GPS Accuracy: ${gpsAccuracy} meters` : '';
+    const confirmGps = document.getElementById('confirmGps');
+    if (confirmGps) {
+        confirmGps.textContent = gpsAccuracy ? `📍 GPS Accuracy: ${gpsAccuracy} meters` : '';
+    }
     
     // ===== SHOW/HIDE SECTIONS BASED ON ACTIVITY TYPE =====
     const type = document.getElementById('activity_type').value;
     
     // Hide all sections first
-    document.getElementById('confirmPersonnelField').classList.add('hidden');
-    document.getElementById('confirmVehicleField').classList.add('hidden');
-    document.getElementById('confirmCheckpointFields').classList.add('hidden');
-    document.getElementById('confirmOplanFields').classList.add('hidden');
-    document.getElementById('confirmOrdinanceSection').classList.add('hidden');
-    document.getElementById('confirmDispositionSection').classList.add('hidden');
-    document.getElementById('confirmBakalSummary').classList.add('hidden');
-    document.getElementById('confirmSitaSummary').classList.add('hidden');
+    const sections = ['confirmPersonnelField', 'confirmVehicleField', 'confirmCheckpointFields', 
+                     'confirmOplanFields', 'confirmOrdinanceSection', 'confirmDispositionSection',
+                     'confirmBakalSummary', 'confirmSitaSummary'];
+    sections.forEach(section => {
+        const element = document.getElementById(section);
+        if (element) element.classList.add('hidden');
+    });
     
     // Show personnel for all except checkpoint
     if (type && type !== 'checkpoint') {
-        document.getElementById('confirmPersonnelField').classList.remove('hidden');
+        const confirmPersonnelField = document.getElementById('confirmPersonnelField');
+        if (confirmPersonnelField) confirmPersonnelField.classList.remove('hidden');
     }
     
     // Show vehicle for mobile patrols
     if (type === 'Mobile Patrol' || type === 'Motorcycle Patrol') {
-        document.getElementById('confirmVehicleField').classList.remove('hidden');
+        const confirmVehicleField = document.getElementById('confirmVehicleField');
+        if (confirmVehicleField) confirmVehicleField.classList.remove('hidden');
     }
     
     // Show checkpoint fields
     if (type === 'checkpoint') {
-        document.getElementById('confirmCheckpointFields').classList.remove('hidden');
-        document.getElementById('confirmOrdinanceSection').classList.remove('hidden');
-        document.getElementById('confirmDispositionSection').classList.remove('hidden');
+        const sectionsToShow = ['confirmCheckpointFields', 'confirmOrdinanceSection', 'confirmDispositionSection'];
+        sectionsToShow.forEach(section => {
+            const element = document.getElementById(section);
+            if (element) element.classList.remove('hidden');
+        });
     }
     
     // Show patrol violation fields
     if (type && type.includes('Patrol')) {
-        document.getElementById('confirmOrdinanceSection').classList.remove('hidden');
+        const confirmOrdinanceSection = document.getElementById('confirmOrdinanceSection');
+        if (confirmOrdinanceSection) confirmOrdinanceSection.classList.remove('hidden');
     }
     
     // Show Oplan Bakal fields
     if (type === 'Oplan Bakal') {
-        document.getElementById('confirmOplanFields').classList.remove('hidden');
-        document.getElementById('confirmBakalSummary').classList.remove('hidden');
+        const sectionsToShow = ['confirmOplanFields', 'confirmBakalSummary'];
+        sectionsToShow.forEach(section => {
+            const element = document.getElementById(section);
+            if (element) element.classList.remove('hidden');
+        });
     }
     
     // Show Oplan Sita fields
     if (type === 'Oplan Sita') {
-        document.getElementById('confirmOplanFields').classList.remove('hidden');
-        document.getElementById('confirmOrdinanceSection').classList.remove('hidden');
-        document.getElementById('confirmDispositionSection').classList.remove('hidden');
-        document.getElementById('confirmSitaSummary').classList.remove('hidden');
+        const sectionsToShow = ['confirmOplanFields', 'confirmOrdinanceSection', 'confirmDispositionSection', 'confirmSitaSummary'];
+        sectionsToShow.forEach(section => {
+            const element = document.getElementById(section);
+            if (element) element.classList.remove('hidden');
+        });
     }
 }
 
@@ -631,8 +771,10 @@ function submitConfirmedReport() {
     
     const form = document.getElementById('activityForm');
     const submitBtn = form.querySelector('button[type="submit"]');
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
-    submitBtn.disabled = true;
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
+        submitBtn.disabled = true;
+    }
     
     form.submit();
 }
@@ -656,4 +798,12 @@ document.addEventListener('DOMContentLoaded', function() {
         quantityInput.addEventListener('input', calculateContrabandKg);
         unitSelect.addEventListener('change', calculateContrabandKg);
     }
+    
+    // Initialize map with default collapsed state (optional - set to false if you want map expanded by default)
+    // Uncomment below if you want map collapsed by default on page load
+    // setTimeout(() => {
+    //     if (!mapCollapsed) {
+    //         toggleMap();
+    //     }
+    // }, 100);
 });
