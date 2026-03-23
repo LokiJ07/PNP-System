@@ -233,55 +233,53 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
     <div id="menuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden" onclick="closeMobileMenu()"></div>
 
     <!-- Sidebar -->
-    <div id="sidebar" class="w-full md:w-[240px] bg-[#08324f] text-white p-4 md:p-5 md:sticky md:top-0 md:h-screen overflow-y-auto sidebar-mobile fixed top-0 left-[-100%] h-screen z-50 transition-all duration-300 ease-in-out">
+    <div id="sidebar" class="w-full md:w-[260px] bg-gradient-to-b from-[#003366] to-[#002244] text-white p-4 md:p-5 md:sticky md:top-0 md:h-screen overflow-y-auto sidebar-mobile fixed top-0 left-[-100%] h-screen z-50 transition-all duration-300 ease-in-out shadow-xl">
         <button id="closeSidebar" class="md:hidden absolute top-4 right-4 text-white text-xl">
             <i class="fas fa-times"></i>
         </button>
         
-        <div class="flex items-center gap-3 mb-6 pb-3 border-b border-[#1a4b6d] mt-12 md:mt-0">
-            <img src="../image/pnplogo.png" class="w-8 h-8 md:w-10 md:h-10 object-contain" alt="PNP Logo">
-            <h2 class="text-lg md:text-xl font-semibold">PNP User</h2>
+        <div class="flex items-center gap-3 mb-6 pb-3 border-b border-[#FFD700] mt-12 md:mt-0">
+            <img src="../image/pnplogo.png" class="w-10 h-10 object-contain" alt="PNP Logo">
+            <div>
+                <h2 class="text-xl font-bold tracking-wide">PNP</h2>
+                <p class="text-xs text-yellow-300">Manolo Fortich</p>
+            </div>
         </div>
 
         <!-- User Profile Section -->
-        <div class="bg-gradient-to-b from-[#0a3d62] to-[#08324f] p-5 rounded-xl mb-6 text-center border border-[#1a4b6d] shadow-lg">
+        <div class="bg-gradient-to-b from-[#1a4d8c] to-[#003366] p-5 rounded-xl mb-6 text-center border border-[#FFD700] shadow-lg">
             <div class="relative mx-auto w-24 h-24 mb-3">
-                <img src="<?php echo $profile_pic . $profile_pic_version; ?>" class="w-full h-full rounded-full object-cover border-3 border-yellow-400 shadow-lg" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name=<?php echo urlencode($user['first_name'].'+'.$user['last_name']); ?>&size=100&background=1f6fb2&color=fff'">
+                <img src="<?php echo $profile_pic . $profile_pic_version; ?>" class="w-full h-full rounded-full object-cover border-3 border-[#FFD700] shadow-lg" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name=<?php echo urlencode($user['first_name'].'+'.$user['last_name']); ?>&size=100&background=003366&color=FFD700'">
                 <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
             </div>
             
-            <h3 class="text-lg font-bold text-yellow-400"><?php echo $user['rank'] . ' ' . $user['first_name'] . ' ' . $user['last_name']; ?></h3>
+            <h3 class="text-lg font-bold text-[#FFD700]"><?php echo $user['rank'] . ' ' . $user['first_name'] . ' ' . $user['last_name']; ?></h3>
             <p class="text-xs text-gray-300 mb-2">Badge: <?php echo $user['badge_number']; ?></p>
         </div>
 
-        <!-- Simple Menu -->
+        <!-- Menu -->
         <ul class="space-y-2">
-            <li class="p-3 rounded-lg hover:bg-[#1f6fb2] transition">
+            <li class="p-3 rounded-lg bg-[#1a4d8c] border-l-4 border-[#FFD700] hover:bg-[#2a5d9c] transition">
                 <a href="user_dashboard.php" class="text-white no-underline block text-sm md:text-base font-medium">
-                    <i class="fas fa-tachometer-alt mr-3 w-5"></i> Dashboard
+                    <i class="fas fa-tachometer-alt mr-3 w-5 text-[#FFD700]"></i> Dashboard
                 </a>
             </li>
-            
-            <li class="p-3 rounded-lg hover:bg-[#1f6fb2] transition">
+            <li class="p-3 rounded-lg hover:bg-[#1a4d8c] transition">
                 <a href="my_reports.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-file-alt mr-3 w-5"></i> My Reports
                 </a>
             </li>
-            
-            <li class="p-3 rounded-lg bg-[#0a3d62] border-l-4 border-yellow-400 hover:bg-[#1f6fb2] transition">
+            <li class="p-3 rounded-lg hover:bg-[#1a4d8c] transition">
                 <a href="settings.php" class="text-white no-underline block text-sm md:text-base font-medium">
-                    <i class="fas fa-cog mr-3 w-5 text-yellow-400"></i> Settings
+                    <i class="fas fa-cog mr-3 w-5"></i> Settings
                 </a>
             </li>
-            
-            <li class="my-4 border-t border-[#1a4b6d]"></li>
-            
+            <li class="my-4 border-t border-[#FFD700] opacity-30"></li>
             <li class="p-3 rounded-lg bg-red-600 hover:bg-red-700 transition cursor-pointer">
                 <a href="../logout.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-sign-out-alt mr-3 w-5"></i> Logout
                 </a>
             </li>
-            
             <li class="mt-6 text-center text-xs text-gray-400">
                 <p>PNP Manolo Fortich v2.0</p>
                 <p class="mt-1">© 2026 All Rights Reserved</p>

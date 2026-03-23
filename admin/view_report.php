@@ -3,10 +3,20 @@
 // FILE: admin/view_report.php
 // PURPOSE: Display complete activity report details (VIEW ONLY - Auto Approved)
 // IMPROVED: Clean UI, removed status buttons, mobile responsive
+// FIXED: Date fields now use proper database column names
 // =====================================================
 
 session_start();
 require_once '../config/db_connect.php';
+
+// Function to check if user is admin
+function requireAdmin() {
+    if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+        header('Location: ../index.php');
+        exit();
+    }
+}
+
 requireAdmin();
 
 $type = $_GET['type'] ?? '';
@@ -134,6 +144,14 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/js/lightbox.min.js"></script>
     
     <style>
+        /* PNP Color Scheme */
+        :root {
+            --pnp-navy: #003366;
+            --pnp-gold: #FFD700;
+            --pnp-light-navy: #1a4d8c;
+            --pnp-dark-navy: #002244;
+        }
+        
         /* Dropdown styles */
         .dropdown-content {
             max-height: 0;
@@ -152,16 +170,16 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
         /* Sidebar scrollbar */
         .sidebar-scroll {
             scrollbar-width: thin;
-            scrollbar-color: #1e4a6a #08324f;
+            scrollbar-color: var(--pnp-gold) var(--pnp-navy);
         }
         .sidebar-scroll::-webkit-scrollbar {
             width: 6px;
         }
         .sidebar-scroll::-webkit-scrollbar-track {
-            background: #08324f;
+            background: var(--pnp-navy);
         }
         .sidebar-scroll::-webkit-scrollbar-thumb {
-            background-color: #1e4a6a;
+            background-color: var(--pnp-gold);
             border-radius: 20px;
         }
         
@@ -190,6 +208,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             width: 100%;
             border-radius: 0.5rem;
             z-index: 1;
+            border: 2px solid var(--pnp-gold);
         }
         
         /* Photo grid */
@@ -208,7 +227,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
         }
         .photo-item:hover {
             transform: scale(1.05);
-            border-color: #1f6fb2;
+            border-color: var(--pnp-gold);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         
@@ -250,7 +269,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             box-shadow: 0 4px 16px rgba(0,0,0,0.1);
         }
         .card-header {
-            background: #08324f;
+            background: var(--pnp-navy);
             color: white;
             padding: 1rem 1.5rem;
             font-weight: 600;
@@ -259,14 +278,29 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             gap: 0.75rem;
         }
         .card-header i {
-            color: #ffc107;
+            color: var(--pnp-gold);
+        }
+        
+        /* Status badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-approved {
+            background: #d1fae5;
+            color: #065f46;
         }
     </style>
 </head>
-<body class="flex flex-col md:flex-row bg-[#08324f] min-h-screen">
+<body class="flex flex-col md:flex-row bg-[#003366] min-h-screen">
 
     <!-- Mobile Menu Button -->
-    <button id="mobileMenuBtn" class="md:hidden fixed top-4 left-4 z-50 bg-[#1e4a6a] text-white p-3 rounded-lg shadow-lg">
+    <button id="mobileMenuBtn" class="md:hidden fixed top-4 left-4 z-50 bg-[#003366] text-white p-3 rounded-lg shadow-lg">
         <i class="fas fa-bars text-xl"></i>
     </button>
 
@@ -274,64 +308,64 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
     <div id="menuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden" onclick="closeMobileMenu()"></div>
 
     <!-- Sidebar -->
-    <div id="sidebar" class="w-full md:w-[260px] bg-[#08324f] text-white h-screen overflow-y-auto sidebar-scroll sidebar-mobile fixed top-0 left-[-100%] md:left-0 md:sticky z-50 transition-all duration-300 ease-in-out">
+    <div id="sidebar" class="w-full md:w-[260px] bg-gradient-to-b from-[#003366] to-[#002244] text-white h-screen overflow-y-auto sidebar-scroll sidebar-mobile fixed top-0 left-[-100%] md:left-0 md:sticky z-50 transition-all duration-300 ease-in-out shadow-xl">
         
         <button id="closeSidebar" class="md:hidden absolute top-4 right-4 text-white text-xl">
             <i class="fas fa-times"></i>
         </button>
 
         <!-- Logo and Title -->
-        <div class="flex items-center gap-3 p-5 border-b border-[#1e4a6a] sticky top-0 bg-[#08324f] z-10">
+        <div class="flex items-center gap-3 p-5 border-b border-[#FFD700] sticky top-0 bg-[#003366] z-10">
             <img src="../image/pnplogo.png" class="w-10 h-10 object-contain" alt="PNP Logo">
             <div>
                 <h2 class="text-lg font-semibold leading-tight">PNP Operation</h2>
-                <p class="text-xs text-yellow-400">Admin Panel</p>
+                <p class="text-xs text-[#FFD700]">Admin Panel</p>
             </div>
         </div>
 
         <!-- Admin Info -->
-        <div class="bg-[#1e4a6a] mx-4 my-4 p-4 rounded-lg text-center shadow-lg">
-            <div class="w-16 h-16 bg-yellow-400 rounded-full mx-auto mb-3 flex items-center justify-center text-[#08324f] text-2xl font-bold">
+        <div class="bg-[#1a4d8c] mx-4 my-4 p-4 rounded-lg text-center shadow-lg border border-[#FFD700]">
+            <div class="w-16 h-16 bg-[#FFD700] rounded-full mx-auto mb-3 flex items-center justify-center text-[#003366] text-2xl font-bold">
                 <?php echo substr($admin_name, 0, 1); ?>
             </div>
-            <p class="font-medium text-yellow-400"><?php echo $admin_name; ?></p>
+            <p class="font-medium text-[#FFD700]"><?php echo $admin_name; ?></p>
             <p class="text-xs text-gray-300 mt-1 break-all"><?php echo $admin_email; ?></p>
         </div>
 
         <!-- Navigation Menu -->
         <ul class="space-y-1 px-3 pb-5">
-            <li><a href="admin_dashboard.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-tachometer-alt w-5"></i> Dashboard</a></li>
-            <li><a href="checkpoint.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-map-marker-alt w-5"></i> Checkpoint</a></li>
+            <li><a href="admin_dashboard.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1a4d8c] transition"><i class="fas fa-tachometer-alt w-5"></i> Dashboard</a></li>
+            <li><a href="checkpoint.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1a4d8c] transition"><i class="fas fa-map-marker-alt w-5"></i> Checkpoint</a></li>
             
             <li class="dropdown">
-                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-[#1e4a6a] cursor-pointer transition" onclick="toggleDropdown(this)">
+                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-[#1a4d8c] cursor-pointer transition" onclick="toggleDropdown(this)">
                     <div class="flex items-center gap-3"><i class="fas fa-walking w-5"></i> Patrol</div>
                     <i class="fas fa-chevron-down text-xs transition-transform duration-300"></i>
                 </div>
-                <ul class="dropdown-content pl-4 ml-4 space-y-1 border-l border-[#1e4a6a]">
-                    <li><a href="footpatrol.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Foot Patrol</a></li>
-                    <li><a href="mobilepatrol.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Mobile Patrol</a></li>
-                    <li><a href="motorpatrol.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Motor Patrol</a></li>
+                <ul class="dropdown-content pl-4 ml-4 space-y-1 border-l border-[#1a4d8c]">
+                    <li><a href="footpatrol.php" class="block p-2 text-sm hover:bg-[#1a4d8c] rounded-lg transition">Foot Patrol</a></li>
+                    <li><a href="mobilepatrol.php" class="block p-2 text-sm hover:bg-[#1a4d8c] rounded-lg transition">Mobile Patrol</a></li>
+                    <li><a href="motorpatrol.php" class="block p-2 text-sm hover:bg-[#1a4d8c] rounded-lg transition">Motor Patrol</a></li>
                 </ul>
             </li>
             
             <li class="dropdown">
-                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-[#1e4a6a] cursor-pointer transition" onclick="toggleDropdown(this)">
+                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-[#1a4d8c] cursor-pointer transition" onclick="toggleDropdown(this)">
                     <div class="flex items-center gap-3"><i class="fas fa-shield-alt w-5"></i> Oplan</div>
                     <i class="fas fa-chevron-down text-xs transition-transform duration-300"></i>
                 </div>
-                <ul class="dropdown-content pl-4 ml-4 space-y-1 border-l border-[#1e4a6a]">
-                    <li><a href="oplanbakal.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Oplan Bakal</a></li>
-                    <li><a href="oplansita.php" class="block p-2 text-sm hover:bg-[#1e4a6a] rounded-lg transition">Oplan Sita</a></li>
+                <ul class="dropdown-content pl-4 ml-4 space-y-1 border-l border-[#1a4d8c]">
+                    <li><a href="oplanbakal.php" class="block p-2 text-sm hover:bg-[#1a4d8c] rounded-lg transition">Oplan Bakal</a></li>
+                    <li><a href="oplansita.php" class="block p-2 text-sm hover:bg-[#1a4d8c] rounded-lg transition">Oplan Sita</a></li>
                 </ul>
             </li>
             
-            <li><a href="admin_users.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-users w-5"></i> Users</a></li>
-            <li><a href="accomplishment_report.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-file-alt w-5"></i> Accomplishment Report</a></li>
-            <li><a href="all_reports.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-folder-open w-5"></i> All Reports</a></li>
-            <li><a href="activity_logs.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1e4a6a] transition"><i class="fas fa-history w-5"></i> Activity Logs</a></li>
+            <li><a href="admin_users.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1a4d8c] transition"><i class="fas fa-users w-5"></i> Users</a></li>
+            <li><a href="accomplishment_report.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1a4d8c] transition"><i class="fas fa-file-alt w-5"></i> Accomplishment Report</a></li>
+            <li><a href="all_reports.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1a4d8c] transition"><i class="fas fa-folder-open w-5"></i> All Reports</a></li>
+            <li><a href="activity_logs.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1a4d8c] transition"><i class="fas fa-history w-5"></i> Activity Logs</a></li>
             
-            <li class="my-4 border-t border-[#1e4a6a]"></li>
+            <li class="my-4 border-t border-[#1a4d8c]"></li>
             <li><a href="../logout.php" class="flex items-center gap-3 p-3 rounded-lg bg-red-600 hover:bg-red-700 transition"><i class="fas fa-sign-out-alt w-5"></i> Logout</a></li>
             
             <li class="mt-6 text-center text-xs text-gray-400">
@@ -364,12 +398,12 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
         <?php endif; ?>
 
         <!-- Header with Back Button -->
-        <div class="bg-white p-4 md:p-6 rounded-lg shadow-md mb-6 border-l-4 border-yellow-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div class="bg-white p-4 md:p-6 rounded-lg shadow-md mb-6 border-l-4 border-[#FFD700] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div class="flex items-center gap-3">
                 <a href="javascript:history.back()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition flex items-center gap-2">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
-                <h2 class="text-xl md:text-2xl font-bold text-[#08324f]">
+                <h2 class="text-xl md:text-2xl font-bold text-[#003366]">
                     <?php 
                     if ($display_type == 'patrol') echo 'Patrol Report';
                     elseif ($display_type == 'checkpoint') echo 'Checkpoint Report';
@@ -401,7 +435,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                     </div>
                     <div class="p-6">
                         <div class="flex flex-col sm:flex-row gap-6 items-start">
-                            <div class="w-20 h-20 bg-gradient-to-br from-[#08324f] to-[#1e4a6a] rounded-full flex items-center justify-center text-white text-3xl font-bold border-3 border-yellow-400 shadow-lg">
+                            <div class="w-20 h-20 bg-gradient-to-br from-[#003366] to-[#1a4d8c] rounded-full flex items-center justify-center text-white text-3xl font-bold border-3 border-[#FFD700] shadow-lg">
                                 <?php 
                                 $name_parts = explode(' ', $report['officer_name']);
                                 $initials = '';
@@ -412,7 +446,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                                 ?>
                             </div>
                             <div class="flex-1">
-                                <h4 class="text-xl font-bold text-[#08324f]"><?php echo $report['officer_name']; ?></h4>
+                                <h4 class="text-xl font-bold text-[#003366]"><?php echo $report['officer_name']; ?></h4>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                                     <div>
                                         <p class="text-xs text-gray-500">Badge Number</p>
@@ -445,25 +479,40 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                             <!-- Common fields -->
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Activity Type</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['subtype']; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['subtype']; ?></p>
                             </div>
                             
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Date & Time</p>
-                                <p class="text-lg font-semibold text-[#08324f]">
-                                    <?php echo date('M d, Y', strtotime($report['activity_date'])); ?><br>
-                                    <span class="text-sm text-gray-600"><?php echo date('h:i A', strtotime($report['activity_time'])); ?></span>
+                                <p class="text-lg font-semibold text-[#003366]">
+                                    <?php 
+                                    // Using activity_date and activity_time from the query (which maps to proper database fields)
+                                    if (isset($report['activity_date']) && $report['activity_date']) {
+                                        echo date('F d, Y', strtotime($report['activity_date']));
+                                    } else {
+                                        echo 'Not specified';
+                                    }
+                                    ?><br>
+                                    <span class="text-sm text-gray-600">
+                                        <?php 
+                                        if (isset($report['activity_time']) && $report['activity_time']) {
+                                            echo date('h:i A', strtotime($report['activity_time']));
+                                        } else {
+                                            echo 'Not specified';
+                                        }
+                                        ?>
+                                    </span>
                                 </p>
                             </div>
                             
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Barangay</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['barangay_name']; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['barangay_name']; ?></p>
                             </div>
                             
                             <div class="md:col-span-2">
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Specific Location</p>
-                                <p class="text-base font-medium text-[#08324f] bg-gray-50 p-3 rounded-lg">
+                                <p class="text-base font-medium text-[#003366] bg-gray-50 p-3 rounded-lg">
                                     <?php echo $report['specific_location']; ?>
                                 </p>
                             </div>
@@ -472,13 +521,13 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                             <?php if ($display_type == 'patrol'): ?>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Personnel Deployed</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['personnel_count'] ?? '1'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['personnel_count'] ?? '1'; ?></p>
                             </div>
                             
                             <?php if (!empty($report['vehicle_number'])): ?>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Vehicle/Unit Number</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['vehicle_number']; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['vehicle_number']; ?></p>
                             </div>
                             <?php endif; ?>
                             
@@ -503,27 +552,27 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                             <?php if ($display_type == 'checkpoint'): ?>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Border Control Ops</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['border_control_ops'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['border_control_ops'] ?? '0'; ?></p>
                             </div>
                             
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Border Personnel</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['border_personnel'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['border_personnel'] ?? '0'; ?></p>
                             </div>
                             
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Mobile Checkpoint Ops</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['mobile_checkpoint_ops'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['mobile_checkpoint_ops'] ?? '0'; ?></p>
                             </div>
                             
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Mobile Personnel</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['mobile_personnel'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['mobile_personnel'] ?? '0'; ?></p>
                             </div>
                             
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">TCT/OVR Accomplishments</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['tct_ovr_accomplishment'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['tct_ovr_accomplishment'] ?? '0'; ?></p>
                             </div>
                             
                             <div>
@@ -564,45 +613,81 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                             <?php if ($display_type == 'oplan'): ?>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Operations Count</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['operations_count'] ?? '1'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['operations_count'] ?? '1'; ?></p>
                             </div>
                             
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Personnel Deployed</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['personnel_count'] ?? '1'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['personnel_count'] ?? '1'; ?></p>
                             </div>
                             
                             <?php if ($report['oplan_type'] == 'Oplan Bakal'): ?>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Firearms Seized</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['firearms_seized'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['firearms_seized'] ?? '0'; ?></p>
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Firearms (CRS)</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['firearms_crs'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['firearms_crs'] ?? '0'; ?></p>
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">FAS Deposits</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['fas_deposit'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['fas_deposit'] ?? '0'; ?></p>
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Renewed FAS</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['renewed_fas'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['renewed_fas'] ?? '0'; ?></p>
                             </div>
                             <?php endif; ?>
                             
                             <?php if ($report['oplan_type'] == 'Oplan Sita'): ?>
                             <div>
-                                <p class="text-xs text-gray-500 uppercase tracking-wider">Contraband (kg)</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo number_format($report['contraband_kg'] ?? 0, 2); ?> kg</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wider">Contraband Type</p>
+                                <p class="text-lg font-semibold text-[#003366]">
+                                    <?php 
+                                    if (!empty($report['contraband_type'])) {
+                                        if ($report['contraband_type'] == 'Other' && !empty($report['contraband_other'])) {
+                                            echo $report['contraband_other'];
+                                        } else {
+                                            echo $report['contraband_type'];
+                                        }
+                                    } else {
+                                        echo 'None';
+                                    }
+                                    ?>
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase tracking-wider">Contraband Quantity</p>
+                                <p class="text-lg font-semibold text-[#003366]">
+                                    <?php 
+                                    if (!empty($report['contraband_quantity']) && $report['contraband_quantity'] > 0) {
+                                        echo $report['contraband_quantity'] . ' ' . ($report['contraband_unit'] ?? 'units');
+                                    } else {
+                                        echo '0';
+                                    }
+                                    ?>
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase tracking-wider">Contraband Value</p>
+                                <p class="text-lg font-semibold text-[#003366]">
+                                    <?php 
+                                    if (!empty($report['contraband_value']) && $report['contraband_value'] > 0) {
+                                        echo '₱' . number_format($report['contraband_value'], 2);
+                                    } else {
+                                        echo '₱0.00';
+                                    }
+                                    ?>
+                                </p>
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Kontra Boga</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['kontra_boga'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['kontra_boga'] ?? '0'; ?></p>
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">Anti-Vaping OPNs</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['anti_vaping'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['anti_vaping'] ?? '0'; ?></p>
                             </div>
                             <?php endif; ?>
                             
@@ -613,7 +698,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                             
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wider">House Visitations</p>
-                                <p class="text-lg font-semibold text-[#08324f]"><?php echo $report['house_visitations'] ?? '0'; ?></p>
+                                <p class="text-lg font-semibold text-[#003366]"><?php echo $report['house_visitations'] ?? '0'; ?></p>
                             </div>
                             
                             <!-- Violations for Oplan Sita -->
@@ -715,7 +800,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                         <span>Report Location</span>
                     </div>
                     <div class="p-4">
-                        <div id="map" class="w-full rounded-lg border-2 border-gray-200"></div>
+                        <div id="map" class="w-full rounded-lg border-2 border-[#FFD700]"></div>
                         <?php if ($report['latitude'] && $report['longitude']): ?>
                         <div class="mt-3 text-center">
                             <a href="https://www.google.com/maps?q=<?php echo $report['latitude']; ?>,<?php echo $report['longitude']; ?>" 
@@ -735,7 +820,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                             <i class="fas fa-images"></i>
                             <span>Photo Evidence</span>
                         </div>
-                        <span class="bg-yellow-400 text-[#08324f] px-3 py-1 rounded-full text-xs font-bold">
+                        <span class="bg-[#FFD700] text-[#003366] px-3 py-1 rounded-full text-xs font-bold">
                             <?php echo $photos->num_rows; ?> Photo<?php echo $photos->num_rows != 1 ? 's' : ''; ?>
                         </span>
                     </div>
@@ -775,11 +860,35 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                             </div>
                             <div class="flex justify-between py-2 border-b border-gray-100">
                                 <span class="text-gray-600">Submitted:</span>
-                                <span><?php echo date('M d, Y h:i A', strtotime($report['submitted_at'])); ?></span>
+                                <span><?php echo date('F d, Y h:i A', strtotime($report['submitted_at'])); ?></span>
                             </div>
                             <div class="flex justify-between py-2 border-b border-gray-100">
                                 <span class="text-gray-600">Last Updated:</span>
-                                <span><?php echo date('M d, Y h:i A', strtotime($report['updated_at'])); ?></span>
+                                <span><?php echo date('F d, Y h:i A', strtotime($report['updated_at'])); ?></span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="text-gray-600">Activity Date:</span>
+                                <span class="font-medium text-[#003366]">
+                                    <?php 
+                                    if (isset($report['activity_date']) && $report['activity_date']) {
+                                        echo date('F d, Y', strtotime($report['activity_date']));
+                                    } else {
+                                        echo 'Not specified';
+                                    }
+                                    ?>
+                                </span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">Activity Time:</span>
+                                <span class="font-medium text-[#003366]">
+                                    <?php 
+                                    if (isset($report['activity_time']) && $report['activity_time']) {
+                                        echo date('h:i A', strtotime($report['activity_time']));
+                                    } else {
+                                        echo 'Not specified';
+                                    }
+                                    ?>
+                                </span>
                             </div>
                             <div class="flex justify-between py-2 text-green-600">
                                 <span class="text-gray-600">Status:</span>
@@ -850,36 +959,42 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             const map = L.map('map').setView([lat, lng], 17);
             
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
             }).addTo(map);
             
             const marker = L.marker([lat, lng]).addTo(map);
             marker.bindPopup(`
                 <b><?php echo addslashes($report['subtype']); ?></b><br>
                 <?php echo addslashes($report['barangay_name']); ?><br>
-                <?php echo date('M d, Y', strtotime($report['activity_date'])); ?>
+                <?php echo date('F d, Y', strtotime($report['activity_date'])); ?>
             `).openPopup();
             
             <?php if ($report['gps_accuracy']): ?>
             L.circle([lat, lng], {
                 radius: <?php echo $report['gps_accuracy']; ?>,
-                color: '#1f6fb2',
-                fillColor: '#1f6fb2',
-                fillOpacity: 0.1
+                color: '#FFD700',
+                fillColor: '#003366',
+                fillOpacity: 0.2
             }).addTo(map);
             <?php endif; ?>
             
             <?php else: ?>
-            document.getElementById('map').innerHTML = '<div class="flex items-center justify-center h-full bg-gray-100 rounded-lg"><p class="text-gray-500">No location data available</p></div>';
+            const mapDiv = document.getElementById('map');
+            if (mapDiv) {
+                mapDiv.innerHTML = '<div class="flex items-center justify-center h-full bg-gray-100 rounded-lg"><p class="text-gray-500">No location data available</p></div>';
+            }
             <?php endif; ?>
         });
 
         // Lightbox options
-        lightbox.option({
-            'resizeDuration': 200,
-            'wrapAround': true,
-            'albumLabel': 'Photo %1 of %2'
-        });
+        if (typeof lightbox !== 'undefined') {
+            lightbox.option({
+                'resizeDuration': 200,
+                'wrapAround': true,
+                'albumLabel': 'Photo %1 of %2'
+            });
+        }
     </script>
 </body>
 </html>
