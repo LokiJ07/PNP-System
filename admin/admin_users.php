@@ -445,7 +445,6 @@ $stations = ['Manolo Fortich MPS', 'Malaybalay CPS', 'Valencia CPS', 'Bukidnon P
                             <th class="p-3 text-left">Role</th>
                             <th class="p-3 text-left">Status</th>
                             <th class="p-3 text-left">Last Login</th>
-                            <th class="p-3 text-left">Date Hired</th>
                             <th class="p-3 text-left">Actions</th>
                         </tr>
                     </thead>
@@ -491,9 +490,6 @@ $stations = ['Manolo Fortich MPS', 'Malaybalay CPS', 'Valencia CPS', 'Bukidnon P
                                     echo '<span class="text-gray-400">Never</span>';
                                 }
                                 ?>
-                            </td>
-                            <td class="p-3 text-sm">
-                                <?php echo $user['date_hired'] ? date('M d, Y', strtotime($user['date_hired'])) : '<span class="text-gray-400">N/A</span>'; ?>
                             </td>
                             <td class="p-3">
                                 <div class="flex gap-2">

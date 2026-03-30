@@ -2,7 +2,7 @@
 // =====================================================
 // FILE: admin/view_user.php
 // PURPOSE: Display complete user profile with statistics
-// IMPROVED: Removed pending/rejected, added violations/disposition
+// FIXED: Last login display, simplified edit, change password with view
 // =====================================================
 
 session_start();
@@ -17,31 +17,21 @@ if ($user_id === 0) {
     exit();
 }
 
-// Handle profile update
+// Handle profile update - SIMPLIFIED (Basic Info Only)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $rank = $_POST['rank'] ?? '';
     $first_name = $_POST['first_name'] ?? '';
     $last_name = $_POST['last_name'] ?? '';
     $email = $_POST['email'] ?? '';
-    $contact_number = $_POST['contact_number'] ?? '';
-    $station = $_POST['station'] ?? '';
-    $unit = $_POST['unit'] ?? '';
-    $address = $_POST['address'] ?? '';
-    $emergency_contact = $_POST['emergency_contact'] ?? '';
-    $emergency_number = $_POST['emergency_number'] ?? '';
     
     $update_stmt = $conn->prepare("
         UPDATE users SET 
-            rank = ?, first_name = ?, last_name = ?, email = ?,
-            contact_number = ?, station = ?, unit = ?, address = ?,
-            emergency_contact_name = ?, emergency_contact_number = ?
+            rank = ?, first_name = ?, last_name = ?, email = ?
         WHERE user_id = ?
     ");
     
-    $update_stmt->bind_param("ssssssssssi", 
-        $rank, $first_name, $last_name, $email,
-        $contact_number, $station, $unit, $address,
-        $emergency_contact, $emergency_number, $user_id
+    $update_stmt->bind_param("ssssi", 
+        $rank, $first_name, $last_name, $email, $user_id
     );
     
     if ($update_stmt->execute()) {
@@ -55,20 +45,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     exit();
 }
 
-// Handle password reset
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
-    $new_password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
-    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+// Handle password change (instead of reset)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+    $new_password = $_POST['new_password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
     
-    $pass_stmt = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
-    $pass_stmt->bind_param("si", $hashed_password, $user_id);
-    
-    if ($pass_stmt->execute()) {
-        $_SESSION['success'] = "Password reset successfully. New password: $new_password";
+    if (strlen($new_password) < 6) {
+        $_SESSION['error'] = 'Password must be at least 6 characters';
+    } elseif ($new_password !== $confirm_password) {
+        $_SESSION['error'] = 'Passwords do not match';
     } else {
-        $_SESSION['error'] = 'Failed to reset password';
+        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+        $pass_stmt = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
+        $pass_stmt->bind_param("si", $hashed_password, $user_id);
+        
+        if ($pass_stmt->execute()) {
+            $_SESSION['success'] = "Password changed successfully";
+        } else {
+            $_SESSION['error'] = 'Failed to change password';
+        }
+        $pass_stmt->close();
     }
-    $pass_stmt->close();
     
     header("Location: view_user.php?id=$user_id");
     exit();
@@ -281,13 +278,52 @@ usort($recent, function($a, $b) {
 });
 $recent = array_slice($recent, 0, 5);
 
-// Format dates
-$last_login = $user['last_login'] ? date('F d, Y h:i A', strtotime($user['last_login'])) : 'Never logged in';
-$member_since = $user['date_hired'] ? date('F d, Y', strtotime($user['date_hired'])) : 'Not specified';
+// ===== FIXED: Format dates properly =====
+// Last login format
+if (!empty($user['last_login']) && $user['last_login'] != '0000-00-00 00:00:00') {
+    $last_login_timestamp = strtotime($user['last_login']);
+    $last_login_formatted = date('F d, Y h:i A', $last_login_timestamp);
+    
+    // Check if today or yesterday
+    $today_start = strtotime('today midnight');
+    $yesterday_start = strtotime('yesterday midnight');
+    
+    if ($last_login_timestamp >= $today_start) {
+        $last_login = 'Today, ' . date('h:i A', $last_login_timestamp);
+    } elseif ($last_login_timestamp >= $yesterday_start) {
+        $last_login = 'Yesterday, ' . date('h:i A', $last_login_timestamp);
+    } else {
+        $last_login = $last_login_formatted;
+    }
+} else {
+    $last_login = 'Never logged in';
+}
+
+// Member since (date hired)
+if (!empty($user['date_hired']) && $user['date_hired'] != '0000-00-00') {
+    $member_since = date('F d, Y', strtotime($user['date_hired']));
+} else {
+    $member_since = 'Not specified';
+}
 
 // Admin info
 $admin_name = $_SESSION['full_name'] ?? 'Admin';
 $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
+
+// Ranks for dropdown
+$ranks = [
+    'PO1' => 'Police Officer 1',
+    'PO2' => 'Police Officer 2',
+    'PO3' => 'Police Officer 3',
+    'SPO1' => 'Senior Police Officer 1',
+    'SPO2' => 'Senior Police Officer 2',
+    'SPO3' => 'Senior Police Officer 3',
+    'SPO4' => 'Senior Police Officer 4',
+    'PLT' => 'Police Lieutenant',
+    'PCPT' => 'Police Captain',
+    'PMAJ' => 'Police Major',
+    'PLTCOL' => 'Police Lieutenant Colonel'
+];
 ?>
 
 <!DOCTYPE html>
@@ -370,12 +406,6 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                 width: 100%;
                 margin-left: 0;
             }
-        }
-        
-        /* Form input focus */
-        .form-input:focus {
-            outline: none;
-            border-color: #1f6fb2;
         }
         
         /* Auto-approve badge */
@@ -543,7 +573,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                         </div>
                     </div>
                     
-                    <!-- Last Login -->
+                    <!-- Last Login - FIXED -->
                     <div class="text-left md:text-right bg-[#1e4a6a] p-4 rounded-lg w-full md:w-auto">
                         <p class="text-sm text-gray-300"><i class="fas fa-clock mr-1"></i> Last Login</p>
                         <p class="font-semibold"><?php echo $last_login; ?></p>
@@ -583,7 +613,7 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                     </div>
                 </div>
 
-                <!-- Contact Information -->
+                <!-- Contact Information (Read-only) -->
                 <div class="mb-8 p-4 md:p-6 bg-gray-50 rounded-lg border-l-4 border-blue-500">
                     <h4 class="text-base md:text-lg font-semibold text-[#08324f] mb-4 flex items-center gap-2">
                         <i class="fas fa-address-card text-yellow-500"></i> Contact Information
@@ -886,8 +916,8 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                         <i class="fas fa-edit"></i> Edit Profile
                     </button>
                     
-                    <button onclick="openResetModal()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg transition flex items-center gap-2">
-                        <i class="fas fa-key"></i> Reset Password
+                    <button onclick="openChangePasswordModal()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg transition flex items-center gap-2">
+                        <i class="fas fa-key"></i> Change Password
                     </button>
                     
                     <?php if ($user['account_status'] == 'active'): ?>
@@ -908,9 +938,9 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
         </div>
     </div>
 
-    <!-- Edit Profile Modal -->
+    <!-- Edit Profile Modal - SIMPLIFIED (Basic Info Only) -->
     <div id="editProfileModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 modal">
-        <div class="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onclick="event.stopPropagation()">
+        <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onclick="event.stopPropagation()">
             <div class="bg-[#08324f] text-white p-5 rounded-t-xl flex justify-between items-center sticky top-0">
                 <h3 class="text-lg font-semibold flex items-center">
                     <i class="fas fa-edit text-yellow-400 mr-2"></i>
@@ -928,13 +958,11 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Rank</label>
                         <select name="rank" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]">
-                            <option value="PO1" <?php echo $user['rank'] == 'PO1' ? 'selected' : ''; ?>>PO1</option>
-                            <option value="PO2" <?php echo $user['rank'] == 'PO2' ? 'selected' : ''; ?>>PO2</option>
-                            <option value="PO3" <?php echo $user['rank'] == 'PO3' ? 'selected' : ''; ?>>PO3</option>
-                            <option value="SPO1" <?php echo $user['rank'] == 'SPO1' ? 'selected' : ''; ?>>SPO1</option>
-                            <option value="SPO2" <?php echo $user['rank'] == 'SPO2' ? 'selected' : ''; ?>>SPO2</option>
-                            <option value="SPO3" <?php echo $user['rank'] == 'SPO3' ? 'selected' : ''; ?>>SPO3</option>
-                            <option value="SPO4" <?php echo $user['rank'] == 'SPO4' ? 'selected' : ''; ?>>SPO4</option>
+                            <?php foreach ($ranks as $code => $name): ?>
+                            <option value="<?php echo $code; ?>" <?php echo $user['rank'] == $code ? 'selected' : ''; ?>>
+                                <?php echo $name; ?>
+                            </option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     
@@ -952,36 +980,6 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
                         <label class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                         <input type="text" name="last_name" value="<?php echo $user['last_name']; ?>" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]">
                     </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
-                        <input type="text" name="contact_number" value="<?php echo $user['contact_number'] ?? ''; ?>" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Station</label>
-                        <input type="text" name="station" value="<?php echo $user['station'] ?? 'Manolo Fortich MPS'; ?>" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                        <input type="text" name="unit" value="<?php echo $user['unit'] ?? 'Patrol Unit'; ?>" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]">
-                    </div>
-                    
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                        <textarea name="address" rows="2" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]"><?php echo $user['address'] ?? ''; ?></textarea>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Name</label>
-                        <input type="text" name="emergency_contact" value="<?php echo $user['emergency_contact_name'] ?? ''; ?>" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Number</label>
-                        <input type="text" name="emergency_number" value="<?php echo $user['emergency_contact_number'] ?? ''; ?>" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2]">
-                    </div>
                 </div>
                 
                 <div class="flex gap-3 justify-end mt-6 border-t pt-4">
@@ -996,31 +994,58 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
         </div>
     </div>
 
-    <!-- Reset Password Modal -->
-    <div id="resetPasswordModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 modal">
+    <!-- Change Password Modal with Show Password -->
+    <div id="changePasswordModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 modal">
         <div class="bg-white rounded-xl max-w-md w-full shadow-2xl" onclick="event.stopPropagation()">
             <div class="bg-[#08324f] text-white p-5 rounded-t-xl flex justify-between items-center">
                 <h3 class="text-lg font-semibold flex items-center">
                     <i class="fas fa-key text-yellow-400 mr-2"></i>
-                    Reset Password
+                    Change Password
                 </h3>
-                <button onclick="closeResetModal()" class="text-white hover:text-gray-300 transition">
+                <button onclick="closeChangePasswordModal()" class="text-white hover:text-gray-300 transition">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
             
             <div class="p-6">
-                <p class="text-gray-600 mb-6">Are you sure you want to reset the password for <strong><?php echo $user['first_name'] . ' ' . $user['last_name']; ?></strong>? A new random password will be generated and displayed.</p>
+                <p class="text-gray-600 mb-4">Set a new password for <strong><?php echo $user['first_name'] . ' ' . $user['last_name']; ?></strong>.</p>
                 
                 <form method="POST">
-                    <input type="hidden" name="reset_password" value="1">
+                    <input type="hidden" name="change_password" value="1">
+                    
+                    <!-- New Password Field with Eye Icon -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                        <div class="relative">
+                            <input type="password" name="new_password" id="new_password" required 
+                                   class="w-full p-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2] focus:border-transparent">
+                            <button type="button" onclick="togglePassword('new_password', 'eye_new')" 
+                                    class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                                <i id="eye_new" class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                    </div>
+                    
+                    <!-- Confirm Password Field with Eye Icon -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                        <div class="relative">
+                            <input type="password" name="confirm_password" id="confirm_password" required 
+                                   class="w-full p-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1f6fb2] focus:border-transparent">
+                            <button type="button" onclick="togglePassword('confirm_password', 'eye_confirm')" 
+                                    class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                                <i id="eye_confirm" class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
                     
                     <div class="flex gap-3 justify-end">
-                        <button type="button" onclick="closeResetModal()" class="px-6 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-100 transition text-sm font-medium">
+                        <button type="button" onclick="closeChangePasswordModal()" class="px-6 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-100 transition text-sm font-medium">
                             Cancel
                         </button>
-                        <button type="submit" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium">
-                            Reset Password
+                        <button type="submit" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">
+                            Change Password
                         </button>
                     </div>
                 </form>
@@ -1079,21 +1104,17 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
 
         // Tab Functions
         function showTab(tabName) {
-            // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.add('hidden');
             });
             
-            // Remove active class from all buttons
             document.querySelectorAll('[id^="tab-"]').forEach(btn => {
                 btn.classList.remove('border-yellow-500', 'text-[#08324f]');
                 btn.classList.add('text-gray-500');
             });
             
-            // Show selected tab
             document.getElementById(`tab-${tabName}`).classList.remove('hidden');
             
-            // Activate button
             const btn = document.getElementById(`tab-${tabName}-btn`);
             btn.classList.remove('text-gray-500');
             btn.classList.add('border-yellow-500', 'text-[#08324f]');
@@ -1110,14 +1131,52 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             document.body.style.overflow = '';
         }
 
-        function openResetModal() {
-            document.getElementById('resetPasswordModal').classList.remove('hidden');
+        function openChangePasswordModal() {
+            // Clear previous values
+            const newPass = document.getElementById('new_password');
+            const confirmPass = document.getElementById('confirm_password');
+            if (newPass) newPass.value = '';
+            if (confirmPass) confirmPass.value = '';
+            
+            // Reset password type to password (in case it was visible)
+            if (newPass) newPass.type = 'password';
+            if (confirmPass) confirmPass.type = 'password';
+            
+            // Reset eye icons
+            const eyeNew = document.getElementById('eye_new');
+            const eyeConfirm = document.getElementById('eye_confirm');
+            if (eyeNew) {
+                eyeNew.classList.remove('fa-eye-slash');
+                eyeNew.classList.add('fa-eye');
+            }
+            if (eyeConfirm) {
+                eyeConfirm.classList.remove('fa-eye-slash');
+                eyeConfirm.classList.add('fa-eye');
+            }
+            
+            document.getElementById('changePasswordModal').classList.remove('hidden');
             document.body.style.overflow = 'hidden';
         }
 
-        function closeResetModal() {
-            document.getElementById('resetPasswordModal').classList.add('hidden');
+        function closeChangePasswordModal() {
+            document.getElementById('changePasswordModal').classList.add('hidden');
             document.body.style.overflow = '';
+        }
+
+        // Toggle Password Visibility Function
+        function togglePassword(inputId, eyeIconId) {
+            const passwordInput = document.getElementById(inputId);
+            const eyeIcon = document.getElementById(eyeIconId);
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+            }
         }
 
         // Close modals when clicking outside
@@ -1125,15 +1184,15 @@ $admin_email = $_SESSION['email'] ?? 'admin@pnp.gov.ph';
             if (e.target === this) closeEditModal();
         });
         
-        document.getElementById('resetPasswordModal').addEventListener('click', function(e) {
-            if (e.target === this) closeResetModal();
+        document.getElementById('changePasswordModal').addEventListener('click', function(e) {
+            if (e.target === this) closeChangePasswordModal();
         });
 
         // Close modals on escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeEditModal();
-                closeResetModal();
+                closeChangePasswordModal();
             }
         });
     </script>

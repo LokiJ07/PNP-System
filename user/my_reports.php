@@ -1,8 +1,7 @@
 <?php
 // =====================================================
 // FILE: user/my_reports.php
-// PURPOSE: Display all user reports with detailed fields
-// IMPROVED: Added violations, disposition, contraband details
+// PURPOSE: Display all user reports with filtering options
 // =====================================================
 session_start();
 require_once '../config/db_connect.php';
@@ -36,7 +35,7 @@ $filter_date_to = $_GET['date_to'] ?? '';
 // Build the query to get all user activities
 $activities = [];
 
-// Get patrol activities with ALL fields
+// Get patrol activities
 $patrol_query = "
     SELECT 
         'patrol' as activity_type,
@@ -50,17 +49,7 @@ $patrol_query = "
         submitted_at,
         personnel_count,
         vehicle_number,
-        accomplishment_description,
-        drinking_violations,
-        smoking_violations,
-        halfnaked_violations,
-        curfew_violations,
-        vandalism_violations,
-        other_violations,
-        other_violations_desc,
-        latitude,
-        longitude,
-        gps_accuracy
+        accomplishment_description
     FROM patrol_activities 
     WHERE user_id = ?
 ";
@@ -99,7 +88,7 @@ while ($row = $patrols->fetch_assoc()) {
     $activities[] = $row;
 }
 
-// Get checkpoint activities with ALL fields
+// Get checkpoint activities
 $checkpoint_query = "
     SELECT 
         'checkpoint' as activity_type,
@@ -118,23 +107,7 @@ $checkpoint_query = "
         overlapping_ops,
         tct_ovr_accomplishment,
         arrested_accomplishment,
-        accomplishment_description,
-        drinking_violations,
-        smoking_violations,
-        halfnaked_violations,
-        curfew_violations,
-        vandalism_violations,
-        other_violations,
-        other_violations_desc,
-        fixed_count,
-        fined_count,
-        warned_count,
-        charged_count,
-        community_service,
-        disposition_others,
-        latitude,
-        longitude,
-        gps_accuracy
+        accomplishment_description
     FROM checkpoint_activities 
     WHERE user_id = ?
 ";
@@ -173,7 +146,7 @@ while ($row = $checkpoints->fetch_assoc()) {
     $activities[] = $row;
 }
 
-// Get oplan activities with ALL fields
+// Get oplan activities
 $oplan_query = "
     SELECT 
         'oplan' as activity_type,
@@ -190,29 +163,7 @@ $oplan_query = "
         arrests_made,
         firearms_seized,
         contraband_kg,
-        accomplishment_description,
-        drinking_violations,
-        smoking_violations,
-        halfnaked_violations,
-        curfew_violations,
-        vandalism_violations,
-        other_violations,
-        other_violations_desc,
-        kontra_boga,
-        anti_vaping,
-        house_visitations,
-        firearms_crs,
-        fas_deposit,
-        renewed_fas,
-        fixed_count,
-        fined_count,
-        warned_count,
-        charged_count,
-        community_service,
-        disposition_others,
-        latitude,
-        longitude,
-        gps_accuracy
+        accomplishment_description
     FROM oplan_activities 
     WHERE user_id = ?
 ";
@@ -282,22 +233,6 @@ $result = $conn->query("
     ) as all_activities
 ");
 $status_counts = $result->fetch_assoc();
-
-// Get total violations
-$result = $conn->query("
-    SELECT 
-        (SELECT COALESCE(SUM(drinking_violations), 0) FROM patrol_activities WHERE user_id = $user_id) +
-        (SELECT COALESCE(SUM(drinking_violations), 0) FROM checkpoint_activities WHERE user_id = $user_id) +
-        (SELECT COALESCE(SUM(drinking_violations), 0) FROM oplan_activities WHERE user_id = $user_id) as total_drinking,
-        
-        (SELECT COALESCE(SUM(smoking_violations), 0) FROM patrol_activities WHERE user_id = $user_id) +
-        (SELECT COALESCE(SUM(smoking_violations), 0) FROM checkpoint_activities WHERE user_id = $user_id) +
-        (SELECT COALESCE(SUM(smoking_violations), 0) FROM oplan_activities WHERE user_id = $user_id) as total_smoking,
-        
-        (SELECT COALESCE(SUM(arrested_accomplishment), 0) FROM checkpoint_activities WHERE user_id = $user_id) +
-        (SELECT COALESCE(SUM(arrests_made), 0) FROM oplan_activities WHERE user_id = $user_id) as total_arrests
-");
-$totals = $result->fetch_assoc();
 
 // Get photos for activities
 $photo_counts = [];
@@ -390,32 +325,10 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
         /* Report card hover effect */
         .report-card {
             transition: all 0.2s ease;
-            border-left-width: 4px;
         }
         .report-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* Value badges */
-        .value-badge {
-            padding: 2px 8px;
-            border-radius: 9999px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            display: inline-block;
-        }
-        .value-firearm {
-            background-color: #fee2e2;
-            color: #b91c1c;
-        }
-        .value-contraband {
-            background-color: #fff7e6;
-            color: #b45309;
-        }
-        .value-arrest {
-            background-color: #e6f7ff;
-            color: #0066cc;
         }
         
         /* Photo gallery modal */
@@ -469,11 +382,6 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
             text-align: center;
             border: 2px dashed #d1d5db;
         }
-        
-        /* Section collapse */
-        .section-content {
-            transition: max-height 0.3s ease;
-        }
     </style>
 </head>
 <body class="flex flex-col md:flex-row bg-[#0a3d62] min-h-screen">
@@ -498,53 +406,55 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
     <div id="menuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden" onclick="closeMobileMenu()"></div>
 
     <!-- Sidebar -->
-    <div id="sidebar" class="w-full md:w-[260px] bg-gradient-to-b from-[#003366] to-[#002244] text-white p-4 md:p-5 md:sticky md:top-0 md:h-screen overflow-y-auto sidebar-mobile fixed top-0 left-[-100%] h-screen z-50 transition-all duration-300 ease-in-out shadow-xl">
+    <div id="sidebar" class="w-full md:w-[240px] bg-[#08324f] text-white p-4 md:p-5 md:sticky md:top-0 md:h-screen overflow-y-auto sidebar-mobile fixed top-0 left-[-100%] h-screen z-50 transition-all duration-300 ease-in-out">
         <button id="closeSidebar" class="md:hidden absolute top-4 right-4 text-white text-xl">
             <i class="fas fa-times"></i>
         </button>
         
-        <div class="flex items-center gap-3 mb-6 pb-3 border-b border-[#FFD700] mt-12 md:mt-0">
-            <img src="../image/pnplogo.png" class="w-10 h-10 object-contain" alt="PNP Logo">
-            <div>
-                <h2 class="text-xl font-bold tracking-wide">PNP</h2>
-                <p class="text-xs text-yellow-300">Manolo Fortich</p>
-            </div>
+        <div class="flex items-center gap-3 mb-6 pb-3 border-b border-[#1a4b6d] mt-12 md:mt-0">
+            <img src="../image/pnplogo.png" class="w-8 h-8 md:w-10 md:h-10 object-contain" alt="PNP Logo">
+            <h2 class="text-lg md:text-xl font-semibold">PNP User</h2>
         </div>
 
         <!-- User Profile Section -->
-        <div class="bg-gradient-to-b from-[#1a4d8c] to-[#003366] p-5 rounded-xl mb-6 text-center border border-[#FFD700] shadow-lg">
+        <div class="bg-gradient-to-b from-[#0a3d62] to-[#08324f] p-5 rounded-xl mb-6 text-center border border-[#1a4b6d] shadow-lg">
             <div class="relative mx-auto w-24 h-24 mb-3">
-                <img src="<?php echo $profile_pic . $profile_pic_version; ?>" class="w-full h-full rounded-full object-cover border-3 border-[#FFD700] shadow-lg" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name=<?php echo urlencode($user['first_name'].'+'.$user['last_name']); ?>&size=100&background=003366&color=FFD700'">
+                <img src="<?php echo $profile_pic . $profile_pic_version; ?>" class="w-full h-full rounded-full object-cover border-3 border-yellow-400 shadow-lg" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name=<?php echo urlencode($user['first_name'].'+'.$user['last_name']); ?>&size=100&background=1f6fb2&color=fff'">
                 <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
             </div>
             
-            <h3 class="text-lg font-bold text-[#FFD700]"><?php echo $user['rank'] . ' ' . $user['first_name'] . ' ' . $user['last_name']; ?></h3>
+            <h3 class="text-lg font-bold text-yellow-400"><?php echo $user['rank'] . ' ' . $user['first_name'] . ' ' . $user['last_name']; ?></h3>
             <p class="text-xs text-gray-300 mb-2">Badge: <?php echo $user['badge_number']; ?></p>
         </div>
 
-        <!-- Menu -->
+        <!-- Simple Menu -->
         <ul class="space-y-2">
-            <li class="p-3 rounded-lg bg-[#1a4d8c] border-l-4 border-[#FFD700] hover:bg-[#2a5d9c] transition">
+            <li class="p-3 rounded-lg hover:bg-[#1f6fb2] transition">
                 <a href="user_dashboard.php" class="text-white no-underline block text-sm md:text-base font-medium">
-                    <i class="fas fa-tachometer-alt mr-3 w-5 text-[#FFD700]"></i> Dashboard
+                    <i class="fas fa-tachometer-alt mr-3 w-5"></i> Dashboard
                 </a>
             </li>
-            <li class="p-3 rounded-lg hover:bg-[#1a4d8c] transition">
+            
+            <li class="p-3 rounded-lg bg-[#0a3d62] border-l-4 border-yellow-400 hover:bg-[#1f6fb2] transition">
                 <a href="my_reports.php" class="text-white no-underline block text-sm md:text-base font-medium">
-                    <i class="fas fa-file-alt mr-3 w-5"></i> My Reports
+                    <i class="fas fa-file-alt mr-3 w-5 text-yellow-400"></i> My Reports
                 </a>
             </li>
-            <li class="p-3 rounded-lg hover:bg-[#1a4d8c] transition">
+            
+            <li class="p-3 rounded-lg hover:bg-[#1f6fb2] transition">
                 <a href="settings.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-cog mr-3 w-5"></i> Settings
                 </a>
             </li>
-            <li class="my-4 border-t border-[#FFD700] opacity-30"></li>
+            
+            <li class="my-4 border-t border-[#1a4b6d]"></li>
+            
             <li class="p-3 rounded-lg bg-red-600 hover:bg-red-700 transition cursor-pointer">
                 <a href="../logout.php" class="text-white no-underline block text-sm md:text-base font-medium">
                     <i class="fas fa-sign-out-alt mr-3 w-5"></i> Logout
                 </a>
             </li>
+            
             <li class="mt-6 text-center text-xs text-gray-400">
                 <p>PNP Manolo Fortich v2.0</p>
                 <p class="mt-1">© 2026 All Rights Reserved</p>
@@ -562,7 +472,7 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
         </div>
 
         <!-- Statistics Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
             <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500">
                 <p class="text-xs text-gray-500">Total Reports</p>
                 <p class="text-xl font-bold text-[#08324f]"><?php echo count($activities); ?></p>
@@ -579,21 +489,9 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                 <p class="text-xs text-gray-500">Rejected</p>
                 <p class="text-xl font-bold text-red-600"><?php echo $status_counts['rejected'] ?? 0; ?></p>
             </div>
-        </div>
-
-        <!-- Summary Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-            <div class="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
-                <span class="text-sm text-gray-600">Total Arrests</span>
-                <span class="text-xl font-bold text-[#08324f]"><?php echo $totals['total_arrests'] ?? 0; ?></span>
-            </div>
-            <div class="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
-                <span class="text-sm text-gray-600">Drinking Violations</span>
-                <span class="text-xl font-bold text-[#08324f]"><?php echo $totals['total_drinking'] ?? 0; ?></span>
-            </div>
-            <div class="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
-                <span class="text-sm text-gray-600">Smoking Violations</span>
-                <span class="text-xl font-bold text-[#08324f]"><?php echo $totals['total_smoking'] ?? 0; ?></span>
+            <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-purple-500 hidden md:block">
+                <p class="text-xs text-gray-500">Patrols</p>
+                <p class="text-xl font-bold text-purple-600"><?php echo $stats['patrols']; ?></p>
             </div>
         </div>
 
@@ -672,12 +570,27 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                     }
                     
                     // Format subtype for display
-                    $displayType = $activity['subtype'];
+                    $displayType = '';
+                    if ($activity['subtype'] == 'Foot Patrol') {
+                        $displayType = 'Foot Patrol';
+                    } elseif ($activity['subtype'] == 'Mobile Patrol') {
+                        $displayType = 'Mobile Patrol';
+                    } elseif ($activity['subtype'] == 'Motorcycle Patrol') {
+                        $displayType = 'Motor Patrol';
+                    } elseif ($activity['subtype'] == 'Oplan Bakal') {
+                        $displayType = 'Oplan Bakal';
+                    } elseif ($activity['subtype'] == 'Oplan Sita') {
+                        $displayType = 'Oplan Sita';
+                    } elseif ($activity['subtype'] == 'Checkpoint Operation') {
+                        $displayType = 'Checkpoint Operation';
+                    } else {
+                        $displayType = $activity['subtype'];
+                    }
                 ?>
                 <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 <?php echo $borderColor; ?> report-card">
                     <!-- Header -->
                     <div class="flex flex-col sm:flex-row justify-between items-start gap-2 mb-3">
-                        <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-2">
                             <span class="font-semibold text-[#08324f]"><?php echo $displayType; ?></span>
                             <span class="text-xs text-gray-500">#<?php echo $activity['id']; ?></span>
                             <?php if ($photo_count > 0): ?>
@@ -725,279 +638,92 @@ if (!empty($user['profile_pic']) && file_exists('../' . $user['profile_pic'])) {
                         </p>
                     </div>
                     
-                    <!-- ===== DETAILED FIELDS BY TYPE ===== -->
-                    
-                    <!-- PATROL FIELDS - Violations -->
-                    <?php if ($activity['activity_type'] == 'patrol'): ?>
+                    <!-- Details Grid -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-xs">
-                        <div class="bg-blue-50 p-2 rounded">
-                            <span class="text-blue-700 font-medium">Personnel:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['personnel_count'] ?? 1; ?></span>
+                        <!-- Personnel Count -->
+                        <div class="bg-gray-50 p-2 rounded">
+                            <span class="text-gray-500">Personnel:</span>
+                            <span class="font-medium ml-1">
+                                <?php 
+                                if ($activity['activity_type'] == 'checkpoint') {
+                                    echo ($activity['border_personnel'] ?? 0) + ($activity['mobile_personnel'] ?? 0);
+                                } else {
+                                    echo $activity['personnel_count'] ?? 1;
+                                }
+                                ?>
+                            </span>
                         </div>
+                        
+                        <!-- Vehicle Number (for patrols) -->
                         <?php if (!empty($activity['vehicle_number'])): ?>
-                        <div class="bg-blue-50 p-2 rounded">
-                            <span class="text-blue-700 font-medium">Vehicle:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['vehicle_number']; ?></span>
+                        <div class="bg-gray-50 p-2 rounded">
+                            <span class="text-gray-500">Vehicle:</span>
+                            <span class="font-medium ml-1"><?php echo $activity['vehicle_number']; ?></span>
                         </div>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <!-- Violations for Patrol -->
-                    <?php 
-                    $has_violations = ($activity['drinking_violations'] > 0 || 
-                                       $activity['smoking_violations'] > 0 || 
-                                       $activity['halfnaked_violations'] > 0 ||
-                                       $activity['curfew_violations'] > 0 ||
-                                       $activity['vandalism_violations'] > 0 ||
-                                       $activity['other_violations'] > 0);
-                    
-                    if ($has_violations): 
-                    ?>
-                    <div class="mt-2 pt-2 border-t">
-                        <p class="text-xs font-semibold text-gray-700 mb-2">Violations Encountered:</p>
-                        <div class="grid grid-cols-3 md:grid-cols-6 gap-1">
-                            <?php if ($activity['drinking_violations'] > 0): ?>
-                            <span class="text-xs bg-red-50 text-red-700 px-2 py-1 rounded">🍺 Drinking: <?php echo $activity['drinking_violations']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['smoking_violations'] > 0): ?>
-                            <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">🚬 Smoking: <?php echo $activity['smoking_violations']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['halfnaked_violations'] > 0): ?>
-                            <span class="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded">👕 Half-Naked: <?php echo $activity['halfnaked_violations']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['curfew_violations'] > 0): ?>
-                            <span class="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">🌙 Curfew: <?php echo $activity['curfew_violations']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['vandalism_violations'] > 0): ?>
-                            <span class="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded">🎨 Vandalism: <?php echo $activity['vandalism_violations']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['other_violations'] > 0): ?>
-                            <span class="text-xs bg-gray-50 text-gray-700 px-2 py-1 rounded">📋 Other: <?php echo $activity['other_violations']; ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <?php if (!empty($activity['other_violations_desc'])): ?>
-                        <p class="text-xs text-gray-500 mt-1 italic"><?php echo htmlspecialchars($activity['other_violations_desc']); ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <?php endif; ?>
-                    <?php endif; ?>
-                    
-                    <!-- CHECKPOINT FIELDS -->
-                    <?php if ($activity['activity_type'] == 'checkpoint'): ?>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-xs">
-                        <div class="bg-red-50 p-2 rounded">
-                            <span class="text-red-700 font-medium">Border Ops:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['border_control_ops'] ?? 0; ?></span>
-                        </div>
-                        <div class="bg-red-50 p-2 rounded">
-                            <span class="text-red-700 font-medium">Border Personnel:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['border_personnel'] ?? 0; ?></span>
-                        </div>
-                        <div class="bg-red-50 p-2 rounded">
-                            <span class="text-red-700 font-medium">Mobile Ops:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['mobile_checkpoint_ops'] ?? 0; ?></span>
-                        </div>
-                        <div class="bg-red-50 p-2 rounded">
-                            <span class="text-red-700 font-medium">Mobile Personnel:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['mobile_personnel'] ?? 0; ?></span>
-                        </div>
-                        <div class="bg-red-50 p-2 rounded">
-                            <span class="text-red-700 font-medium">TCT/OVR:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['tct_ovr_accomplishment'] ?? 0; ?></span>
-                        </div>
-                        <div class="bg-red-50 p-2 rounded">
-                            <span class="text-red-700 font-medium">Arrests:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['arrested_accomplishment'] ?? 0; ?></span>
-                        </div>
-                    </div>
-                    
-                    <!-- Checkpoint Violations -->
-                    <?php 
-                    $has_violations = ($activity['drinking_violations'] > 0 || 
-                                       $activity['smoking_violations'] > 0 || 
-                                       $activity['halfnaked_violations'] > 0 ||
-                                       $activity['curfew_violations'] > 0 ||
-                                       $activity['vandalism_violations'] > 0 ||
-                                       $activity['other_violations'] > 0);
-                    
-                    if ($has_violations): 
-                    ?>
-                    <div class="mt-2 pt-2 border-t">
-                        <p class="text-xs font-semibold text-gray-700 mb-2">Violations at Checkpoint:</p>
-                        <div class="grid grid-cols-3 md:grid-cols-6 gap-1">
-                            <?php if ($activity['drinking_violations'] > 0): ?>
-                            <span class="text-xs bg-red-50 text-red-700 px-2 py-1 rounded">🍺 Drinking: <?php echo $activity['drinking_violations']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['smoking_violations'] > 0): ?>
-                            <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">🚬 Smoking: <?php echo $activity['smoking_violations']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['curfew_violations'] > 0): ?>
-                            <span class="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">🌙 Curfew: <?php echo $activity['curfew_violations']; ?></span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <!-- Checkpoint Disposition -->
-                    <?php 
-                    $has_disposition = ($activity['fixed_count'] > 0 || 
-                                        $activity['fined_count'] > 0 || 
-                                        $activity['warned_count'] > 0 ||
-                                        $activity['charged_count'] > 0 ||
-                                        $activity['community_service'] > 0);
-                    
-                    if ($has_disposition): 
-                    ?>
-                    <div class="mt-2 pt-2 border-t">
-                        <p class="text-xs font-semibold text-gray-700 mb-2">Disposition:</p>
-                        <div class="flex flex-wrap gap-2">
-                            <?php if ($activity['fixed_count'] > 0): ?>
-                            <span class="value-badge bg-green-100 text-green-700">Fixed: <?php echo $activity['fixed_count']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['fined_count'] > 0): ?>
-                            <span class="value-badge bg-yellow-100 text-yellow-700">Fined: <?php echo $activity['fined_count']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['warned_count'] > 0): ?>
-                            <span class="value-badge bg-blue-100 text-blue-700">Warned: <?php echo $activity['warned_count']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['charged_count'] > 0): ?>
-                            <span class="value-badge bg-red-100 text-red-700">Charged: <?php echo $activity['charged_count']; ?></span>
-                            <?php endif; ?>
-                            <?php if ($activity['community_service'] > 0): ?>
-                            <span class="value-badge bg-purple-100 text-purple-700">Community: <?php echo $activity['community_service']; ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <?php if (!empty($activity['disposition_others'])): ?>
-                        <p class="text-xs text-gray-500 mt-1">Others: <?php echo htmlspecialchars($activity['disposition_others']); ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <?php endif; ?>
-                    <?php endif; ?>
-                    
-                    <!-- OPLAN FIELDS -->
-                    <?php if ($activity['activity_type'] == 'oplan'): ?>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-xs">
-                        <div class="bg-green-50 p-2 rounded">
-                            <span class="text-green-700 font-medium">Personnel:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['personnel_count'] ?? 1; ?></span>
-                        </div>
-                        <div class="bg-green-50 p-2 rounded">
-                            <span class="text-green-700 font-medium">Operations:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['operations_count'] ?? 1; ?></span>
-                        </div>
-                        <div class="bg-green-50 p-2 rounded">
-                            <span class="text-green-700 font-medium">Arrests:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['arrests_made'] ?? 0; ?></span>
-                        </div>
-                        
-                        <!-- Oplan Bakal specific -->
-                        <?php if ($activity['subtype'] == 'Oplan Bakal'): ?>
-                        <div class="bg-red-50 p-2 rounded">
-                            <span class="text-red-700 font-medium">Firearms:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['firearms_seized'] ?? 0; ?></span>
-                        </div>
-                        <?php if (!empty($activity['firearms_crs'])): ?>
-                        <div class="bg-red-50 p-2 rounded">
-                            <span class="text-red-700 font-medium">Firearms (CRS):</span>
-                            <span class="font-bold ml-1"><?php echo $activity['firearms_crs']; ?></span>
-                        </div>
-                        <?php endif; ?>
-                        <?php if (!empty($activity['fas_deposit'])): ?>
-                        <div class="bg-red-50 p-2 rounded">
-                            <span class="text-red-700 font-medium">FAS Deposit:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['fas_deposit']; ?></span>
-                        </div>
-                        <?php endif; ?>
                         <?php endif; ?>
                         
-                        <!-- Oplan Sita specific -->
-                        <?php if ($activity['subtype'] == 'Oplan Sita'): ?>
-                        <div class="bg-orange-50 p-2 rounded">
-                            <span class="text-orange-700 font-medium">Contraband:</span>
-                            <span class="font-bold ml-1"><?php echo number_format($activity['contraband_kg'] ?? 0, 2); ?> kg</span>
-                        </div>
-                        <div class="bg-orange-50 p-2 rounded">
-                            <span class="text-orange-700 font-medium">Kontra Boga:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['kontra_boga'] ?? 0; ?></span>
-                        </div>
-                        <div class="bg-orange-50 p-2 rounded">
-                            <span class="text-orange-700 font-medium">Anti-Vaping:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['anti_vaping'] ?? 0; ?></span>
-                        </div>
-                        <div class="bg-orange-50 p-2 rounded">
-                            <span class="text-orange-700 font-medium">House Visits:</span>
-                            <span class="font-bold ml-1"><?php echo $activity['house_visitations'] ?? 0; ?></span>
-                        </div>
-                        
-                        <!-- Oplan Sita Violations -->
-                        <?php 
-                        $has_violations = ($activity['drinking_violations'] > 0 || 
-                                           $activity['smoking_violations'] > 0 || 
-                                           $activity['halfnaked_violations'] > 0 ||
-                                           $activity['curfew_violations'] > 0 ||
-                                           $activity['vandalism_violations'] > 0 ||
-                                           $activity['other_violations'] > 0);
-                        
-                        if ($has_violations): 
-                        ?>
-                        <div class="col-span-2 mt-1">
-                            <p class="text-xs font-semibold text-gray-700">Violations:</p>
-                            <div class="flex flex-wrap gap-1 mt-1">
-                                <?php if ($activity['drinking_violations'] > 0): ?>
-                                <span class="text-xs bg-red-50 text-red-700 px-2 py-1 rounded">🍺 Drinking: <?php echo $activity['drinking_violations']; ?></span>
-                                <?php endif; ?>
-                                <?php if ($activity['smoking_violations'] > 0): ?>
-                                <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">🚬 Smoking: <?php echo $activity['smoking_violations']; ?></span>
-                                <?php endif; ?>
-                                <?php if ($activity['curfew_violations'] > 0): ?>
-                                <span class="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">🌙 Curfew: <?php echo $activity['curfew_violations']; ?></span>
-                                <?php endif; ?>
+                        <!-- CHECKPOINT FIELDS - All 7 fields -->
+                        <?php if ($activity['activity_type'] == 'checkpoint'): ?>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Border Ops:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['border_control_ops'] ?? 0; ?></span>
                             </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <!-- Oplan Sita Disposition -->
-                        <?php 
-                        $has_disposition = ($activity['fixed_count'] > 0 || 
-                                            $activity['fined_count'] > 0 || 
-                                            $activity['warned_count'] > 0 ||
-                                            $activity['charged_count'] > 0 ||
-                                            $activity['community_service'] > 0);
-                        
-                        if ($has_disposition): 
-                        ?>
-                        <div class="col-span-2 mt-2">
-                            <p class="text-xs font-semibold text-gray-700">Disposition:</p>
-                            <div class="flex flex-wrap gap-2 mt-1">
-                                <?php if ($activity['fixed_count'] > 0): ?>
-                                <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Fixed: <?php echo $activity['fixed_count']; ?></span>
-                                <?php endif; ?>
-                                <?php if ($activity['fined_count'] > 0): ?>
-                                <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Fined: <?php echo $activity['fined_count']; ?></span>
-                                <?php endif; ?>
-                                <?php if ($activity['warned_count'] > 0): ?>
-                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Warned: <?php echo $activity['warned_count']; ?></span>
-                                <?php endif; ?>
-                                <?php if ($activity['charged_count'] > 0): ?>
-                                <span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Charged: <?php echo $activity['charged_count']; ?></span>
-                                <?php endif; ?>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Border Personnel:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['border_personnel'] ?? 0; ?></span>
                             </div>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Mobile Ops:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['mobile_checkpoint_ops'] ?? 0; ?></span>
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Mobile Personnel:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['mobile_personnel'] ?? 0; ?></span>
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Overlapping Ops:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['overlapping_ops'] ?? 0; ?></span>
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">TCT/OVR:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['tct_ovr_accomplishment'] ?? 0; ?></span>
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Arrests:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['arrested_accomplishment'] ?? 0; ?></span>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <!-- OPLAN FIELDS -->
+                        <?php if ($activity['activity_type'] == 'oplan'): ?>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Operations:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['operations_count'] ?? 1; ?></span>
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Arrests:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['arrests_made'] ?? 0; ?></span>
+                            </div>
+                            <?php if (!empty($activity['firearms_seized'])): ?>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Firearms:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['firearms_seized']; ?></span>
+                            </div>
+                            <?php endif; ?>
+                            <?php if (!empty($activity['contraband_kg'])): ?>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <span class="text-gray-500">Contraband:</span>
+                                <span class="font-medium ml-1"><?php echo $activity['contraband_kg']; ?> kg</span>
+                            </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        
+                        <!-- Submission Date (common for all) -->
+                        <div class="bg-gray-50 p-2 rounded">
+                            <span class="text-gray-500">Submitted:</span>
+                            <span class="font-medium ml-1"><?php echo date('M d, Y', strtotime($activity['submitted_at'])); ?></span>
                         </div>
-                        <?php endif; ?>
-                        <?php endif; ?>
                     </div>
-                    <?php endif; ?>
-                    
-                    <!-- GPS Coordinates (if available) -->
-                    <?php if (!empty($activity['latitude']) && !empty($activity['longitude'])): ?>
-                    <div class="mt-2 text-xs text-gray-400">
-                        <i class="fas fa-map-pin mr-1"></i> 
-                        <?php echo number_format($activity['latitude'], 6); ?>, <?php echo number_format($activity['longitude'], 6); ?>
-                        <?php if (!empty($activity['gps_accuracy'])): ?>
-                        (accuracy: <?php echo $activity['gps_accuracy']; ?>m)
-                        <?php endif; ?>
-                    </div>
-                    <?php endif; ?>
                     
                     <!-- Photos Section -->
                     <?php if ($photo_count > 0): ?>

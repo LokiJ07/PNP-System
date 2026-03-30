@@ -8,6 +8,8 @@
 require_once '../config/db_connect.php';
 requireAdmin(); // Function to ensure only admins can access
 
+date_default_timezone_set('Asia/Manila');
+
 // Get statistics from database
 $stats = [];
 
